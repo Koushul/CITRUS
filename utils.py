@@ -8,23 +8,32 @@
 Shared utilities for models.py and test_run.py.
 
 """
+from collections import defaultdict
 import os
 import random
 import numpy as np
+import pandas as pd
 import pickle
+from typing import Union
 
 import torch
 from torch.autograd import Variable
+import torch.nn as nn
 
 from scipy import stats
 from sklearn.preprocessing import normalize, scale
 from datetime import datetime
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
+from tqdm import tqdm
+import networkx as nx
+from networkx.algorithms.components import connected_components
 
-import torch.nn as nn
 
+from protclus import COACH, DPCLUS, MCODE
 
-
+import logging
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "DEBUG"))
+logger = logging.getLogger(__name__)
 
 def bool_ext(rbool):
     """Solve the problem that raw bool type is always True.
@@ -102,7 +111,7 @@ def load_dataset(
     return dataset, dataset_test
 
     
-def split_dataset(dataset, ratio=0.66):
+def split_dataset(dataset: dict, ratio: float = 0.66):
 
     sss = StratifiedShuffleSplit(n_splits=1, test_size=0.34)  # , random_state=2020)
     X = dataset["sga"]
@@ -136,12 +145,20 @@ def shuffle_data(dataset):
     dataset["tmr"] = [dataset["tmr"][idx] for idx in rng]
     return dataset
 
+def shuffle_tensor(t: torch.Tensor) -> torch.Tensor:
+    """Shuffle a tensor in all available dimensions"""
+    _idx = torch.randperm(t.nelement())
+    t = t.view(-1)[_idx].view(t.size())
+    return t
 
 def wrap_dataset(dataset):
+    ## FIXME
     """Wrap default numpy or list data into PyTorch variables."""
     dataset["can"] = Variable(torch.LongTensor(dataset["can"]))
     dataset["sga"] = Variable(torch.LongTensor(dataset["sga"]))
     dataset["gep"] = Variable(torch.FloatTensor(dataset["gep"]))
+
+
 
     return dataset
 
@@ -294,3 +311,262 @@ class EarlyStopping(object):
                 self.is_better = lambda a, best: a < best - (best * min_delta / 100)
             if mode == "max":
                 self.is_better = lambda a, best: a > best + (best * min_delta / 100)
+
+def get_ppi_edge_list(signor_file: str = './data/SIGNOR_PPI.tsv') -> list:
+    """
+    Generate a list of all edges from the SIGNOR Protein-Protein interaction graph
+    SIGNOR tsv download: https://signor.uniroma2.it/downloads.php
+    """
+
+    ## TODO: Add filtering options for score thresholds and interaction types
+
+    ppi = pd.read_csv(signor_file, sep='\t')
+    edges = ppi.query('TYPEA == "protein" or TYPEB == "protein"')[['ENTITYA', 'ENTITYB', 'SCORE']].dropna()
+    edges = edges.loc[(~edges.ENTITYA.str.contains('"'))] #filter out non gene entries 
+    logger.info('loaded %i edges from the ppi' % len(edges))
+    
+
+    return edges.values
+
+
+def get_overlap_network(gene_symbols: list, weighted: bool = True) -> nx.Graph:
+    """
+    Return a subgraph of relevant genes induced from the Protein-Protein Interaction Network
+    Code adapted from https://github.com/paulmorio/gincco
+    """
+
+    ppi_edge_list = get_ppi_edge_list()
+    sga_ppi_edge_list = []
+
+    for edge in tqdm(ppi_edge_list):
+        if edge[0] in gene_symbols and edge[1] in gene_symbols:
+            sga_ppi_edge_list.append(edge)
+
+    G = nx.Graph()
+
+    if weighted:
+        G.add_weighted_edges_from(sga_ppi_edge_list)
+    else:
+        G.add_edges_from(sga_ppi_edge_list)
+
+    return G
+
+
+def get_connected_sga_ppi_network(gene_symbols: list, weighted: bool=True) -> nx.Graph:
+    """Returns a NetworkX graph of the largest connected PPI network at the 
+    intersection of the give gene set and the SIGNOR (human) PPI network.
+
+    Code adapted from https://github.com/paulmorio/gincco
+    """
+
+    ppi_edge_list = get_ppi_edge_list()
+    sga_ppi_edge_list = []
+
+    ## find overlapping nodes in SGA and PPI
+    for edge in tqdm(ppi_edge_list):
+        if edge[0] in gene_symbols and edge[1] in gene_symbols:
+            sga_ppi_edge_list.append(edge)
+
+    G = nx.Graph()
+    
+    if weighted:        
+        G.add_weighted_edges_from(sga_ppi_edge_list)
+        largest_cc = max(connected_components(G), key=len)
+        largest_cc = G.subgraph(largest_cc).copy()
+    
+    else:
+        G.add_edges_from(sga_ppi_edge_list)
+        largest_cc = max(connected_components(G), key=len)
+        largest_cc = G.subgraph(largest_cc).copy()
+
+    return largest_cc
+
+
+
+def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS'):
+
+    """
+    Generates a bio-informed mask for connecting 
+    somatic alteration input node to the clustered ppi network
+    
+    """
+    genes = set([name.split('_')[1] for name in sga.columns])
+
+    ## Induce a subgraph from the shared genes between the 
+    ## alterations and the ppi network
+
+    # G = get_connected_sga_ppi_network(gene_symbols=genes)
+    # G = get_overlap_network(gene_symbols=genes)
+    # nx.write_edgelist(G, "graph.txt", data=False)
+
+    ## Apply the clustering algorithm, creating unique protein clusters
+    ## TODO: refactor to avoid writing to disk
+    # c = DPCLUS('graph.txt')
+    # c.cluster()
+    # c.save_clusters('MCODE_clusters.txt')
+
+    logger.info('Using %s clustering algorithm' % clust_algo)
+
+    if clust_algo == 'DPCLUS':
+        precomputed_clusters = 'DPCLUS_clusters.txt'
+    elif clust_algo == 'COACH':
+        precomputed_clusters = 'COACH_clusters.txt'
+    elif clust_algo == 'MCODE':
+        precomputed_clusters = 'MCODE_clusters.txt'
+    else:
+        print('Unknown Clustering Algorithm')
+        precomputed_clusters = 'DPCLUS_clusters.txt'
+
+    with open(precomputed_clusters, "r") as fh:
+        lines = fh.readlines()
+        clusterindex_to_genes = {}
+        for i, c in enumerate(lines):
+            clustlist = c.strip().split(" ")
+            if len(c) == 0:
+                continue
+            clusterindex_to_genes[i] = clustlist
+    
+
+
+    ## Create mapping from sga genes to the protein clusters
+    gene_to_clusterindices = defaultdict(list)
+    for c in clusterindex_to_genes.keys():
+        for g in clusterindex_to_genes[c]:
+            gene_to_clusterindices[g].append(c)
+
+    index_to_sga = dict(enumerate(sga.columns))
+    index_to_genesymbol = dict(enumerate(genes))
+    genesymbol_to_index = {}
+    for key in index_to_genesymbol.keys():
+        if index_to_genesymbol[key] in genesymbol_to_index:
+            pass
+        else:
+            genesymbol_to_index[index_to_genesymbol[key]] = key  
+
+    alteration_to_gene = dict(zip(sga.columns, [i.split('_')[1] for i in sga.columns]))
+
+    ## Create mask
+    adj = np.zeros((len(sga.columns), len(list(clusterindex_to_genes.keys()))))
+    unmapped_genes = []
+
+    for index in index_to_sga.keys():
+        gs = alteration_to_gene[index_to_sga[index]]
+        if gs in gene_to_clusterindices.keys():
+            for cluster_index in gene_to_clusterindices[gs]:
+                adj[index, cluster_index] = 1
+        else:
+            unmapped_genes.append(gs)
+
+    logger.info('Generated mask with: %i clusters and %i edges' % 
+        (len(list(clusterindex_to_genes.keys())), len(sga.columns)-len(unmapped_genes), ))
+
+    biomask = torch.from_numpy(adj).int()
+
+    return biomask
+
+
+def load_sga(sga_file: str = './data/CITRUS_SGA_SGAseparated.csv') -> pd.DataFrame:
+    """
+    Returns a DataFrame representing the somatic gene alterations as a binary table
+    """
+    sga_df = pd.read_csv(sga_file)
+    sga_df = sga_df.set_index(sga_df.columns[0])
+    sga_df.index.name = None
+
+    return sga_df
+
+
+class Data:
+    """
+    Repositiory for all the data required for training and evaluation
+    Holds and interconnects all the different data modalities 
+
+    Required files(csv):
+        cancerType_SGA
+        gene_tf_SGA
+        GEP_SGA
+        SGA_GEP_TF_SGA
+        SGA_SGA
+    """
+
+    def _read_csv(self, csv:str):
+        df = pd.read_csv(csv)
+        df = df.set_index(df.columns[0])
+        df.index.name = None
+
+        # df = df.sample(frac=1).reset_index(drop=True)
+
+        return df
+
+    def __init__(self, fcancerType_SGA:str, fgene_tf_SGA:str, fGEP_SGA:str, fSGA_SGA:str):
+        logger.info("Loading data files")
+
+        self.cancerType_sga = self._read_csv(fcancerType_SGA)
+        self.gene_tf_sga = self._read_csv(fgene_tf_SGA)
+        self.gep_sga = self._read_csv(fGEP_SGA)
+        self.sga_sga = self._read_csv(fSGA_SGA)
+
+        assert all(self.gep_sga.index == self.sga_sga.index)
+        assert all(self.cancerType_sga.index == self.sga_sga.index)
+        
+        self.alterations = np.array(self.sga_sga.columns, dtype=str)
+        self.tumor_ids = np.array(self.sga_sga.index, dtype=str)
+        self.sga_genes = np.unique(np.array([name.split('_')[1] for name in self.alterations], dtype=str))
+        self.cancer_types = np.array(self.cancerType_sga['type'].values, dtype=str) #non-unique list
+
+
+    def get_train_test(self) -> Union[dict, dict]:
+        _encoder = {value:key for key, value in dict(enumerate(np.sort(np.unique(self.cancer_types)))).items()}
+        encoded_cancer_types = self.cancerType_sga['type'].apply(lambda x: _encoder[x]).values + 1
+
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=0.34)
+        X = self.sga_sga.values
+        y = encoded_cancer_types
+
+        train_set = {}
+        test_set = {}
+        for train_index, test_index in sss.split(X, y):  # it only contains one element
+    
+            train_set = {
+                "sga": self.sga_sga.values[train_index],
+                "can": encoded_cancer_types[train_index],
+                "gep": self.gep_sga.values[train_index],
+                "tmr": np.array([self.tumor_ids[idx] for idx in train_index]),
+            }
+            
+            test_set = {
+                "sga": self.sga_sga.values[test_index],
+                "can": encoded_cancer_types[test_index],
+                "gep": self.gep_sga.values[test_index],
+                "tmr": np.array([self.tumor_ids[idx] for idx in test_index]),
+            }
+
+        return train_set, test_set
+
+
+
+if __name__ == '__main__':
+
+
+    # print("Loading dataset...")
+    # dataset, dataset_test = load_dataset(
+    # input_dir='./data',
+    # dataset_name="dataset_CITRUS")
+
+    # print(dataset['sga'].shape)
+    # print(dataset['sga'])
+
+
+
+
+    sga_df = load_sga()
+    print((sga_df.to_numpy()!=1).mean()**100.0)
+
+    # train_test_split()
+
+    # print(dataset['tf_gene'])
+    # print(dataset['tf_gene'].shape)
+
+
+    # print(sga_df.values.shape)
+    # print(biomask.shape)

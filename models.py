@@ -50,9 +50,9 @@ class CITRUS(ModelBase):
 
         # torch.manual_seed(0)
 
-    def build(self):
+    def build(self, device='cpu'):
         """Define modules of the model."""
-
+        self.device = device
         self.layer_sga_emb = nn.Embedding(
             num_embeddings=self.sga_size + 1,
             embedding_dim=self.embedding_size,
@@ -85,7 +85,7 @@ class CITRUS(ModelBase):
             in_features=self.hidden_size, out_features=self.gep_size, bias=True
         )
 
-        mask_value = torch.FloatTensor(self.tf_gene.T)
+        mask_value = torch.FloatTensor(self.tf_gene.T).to(self.device)
         # define layer weight clapped by mask
         self.layer_w_2.weight.data = self.layer_w_2.weight.data * torch.FloatTensor(
             self.tf_gene.T
@@ -97,7 +97,7 @@ class CITRUS(ModelBase):
             self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
         )
 
-        self.loss = nn.MSELoss()
+        self.loss = nn.MSELoss().to(self.device)
 
     def forward(self, sga_index, can_index):
         """Forward process.
@@ -121,6 +121,9 @@ class CITRUS(ModelBase):
           attention weights of SGAs
 
         """
+
+        sga_index = sga_index.to(self.device)
+        can_index = can_index.to(self.device)
 
         # cancer type embedding
         emb_can = self.layer_can_emb(can_index)
@@ -216,8 +219,10 @@ class CITRUS(ModelBase):
             batch_set = get_minibatch(
                 train_set, iter_train, batch_size, batch_type="train"
             )
+
             preds, hid_tmr, _, _, _ = self.forward(batch_set["sga"], batch_set["can"])
-            labels = batch_set["gep"]
+            labels = batch_set["gep"].to(self.device)
+
 
             self.optimizer.zero_grad()
 
