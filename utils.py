@@ -489,10 +489,17 @@ class Data:
         SGA_SGA
     """
 
+    
     def _read_csv(self, csv:str):
-        df = pd.read_csv(csv)
-        df = df.set_index(df.columns[0])
-        df.index.name = None
+        pqt_file = csv[:-3] + 'parquet'
+        if os.path.isfile(pqt_file):
+            df = pd.read_parquet(pqt_file)
+        else:
+            df = pd.read_csv(csv)
+            df = df.set_index(df.columns[0])
+            df.index.name = None
+
+            df.to_parquet(pqt_file)
 
         # df = df.sample(frac=1).reset_index(drop=True)
 
@@ -500,7 +507,7 @@ class Data:
 
     def __init__(self, fcancerType_SGA:str, fgene_tf_SGA:str, fGEP_SGA:str, fSGA_SGA:str):
         logger.info("Loading data files")
-
+            
         self.cancerType_sga = self._read_csv(fcancerType_SGA)
         self.gene_tf_sga = self._read_csv(fgene_tf_SGA)
         self.gep_sga = self._read_csv(fGEP_SGA)
@@ -556,11 +563,12 @@ if __name__ == '__main__':
     # print(dataset['sga'].shape)
     # print(dataset['sga'])
 
-
-
-
-    sga_df = load_sga()
-    print((sga_df.to_numpy()!=1).mean()**100.0)
+    data = Data(
+        fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+        fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+        fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+        fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv'
+    )
 
     # train_test_split()
 
