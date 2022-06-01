@@ -4,18 +4,16 @@
 # Author : "Koushul Ramjattun"
 # =============================================================================
 
-from collections import defaultdict
 import os
 import argparse
-from utils import Data, bool_ext, generate_mask_from_ppi, load_dataset, load_sga, split_dataset, evaluate, checkCorrelations
+from utils import cfh, logger, Data, bool_ext, checkCorrelations, generate_mask_from_ppi
 from biomodels import BioCitrus
-import pickle
-import pandas as pd
 import torch
 import numpy as np
-import logging
-logging.basicConfig(level=os.environ.get("LOGLEVEL", "DEBUG"))
-logger = logging.getLogger(__name__)
+import sys
+
+import warnings
+warnings.filterwarnings("ignore") ##This is bad but temporary
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -169,6 +167,13 @@ parser.add_argument(
     default="1"
 )
 
+parser.add_argument(
+    "--ppi_weights", 
+    help="the count for training", 
+    type=bool_ext, 
+    default=False
+)
+
 args = parser.parse_args()
 
 if not os.path.exists(args.output_dir):
@@ -189,14 +194,21 @@ args.tf_gene = data.gene_tf_sga.values.T
 args.can_size = len(np.unique(data.cancer_types))
 
 
-biomask = generate_mask_from_ppi(sga = data.sga_sga, clust_algo=args.algo).to(device)
+biomask, weights = generate_mask_from_ppi(sga = data.sga_sga, clust_algo=args.algo)
+biomask = biomask.to(device)
+weights = weights.t().to(device)
+
+if not args.ppi_weights:
+    weights = None
+
 
 # biomask = torch.zeros_like(biomask)
 # idx = torch.randperm(biomask.nelement())
 # biomask = biomask.view(-1)[idx].view(biomask.size())
 
-model = BioCitrus(args, biomask=biomask)  
+model = BioCitrus(args, biomask=biomask, init_weights=weights)  
 model.to(device)
+
 
 if args.train_model:  # train from scratch
 
@@ -214,11 +226,11 @@ else:  # or directly load trained model
     model.load_model(os.path.join(args.input_dir, "trained_model.pth"))
     
 # evaluation
-print("Evaluating...")
+logger.info("Evaluating on test set...")
 labels, preds, _  = model.test(
     test_set, test_batch_size=args.test_batch_size
 )
-print("\nPerformance on validation set:\n")
+
 checkCorrelations(labels, preds)
 
 # print("\nPredicting on main dataset...\n")
@@ -230,8 +242,8 @@ checkCorrelations(labels, preds)
 # predict on holdout and evaluate the performance
 labels_test, preds_test, _  = model.test(test_set, test_batch_size=args.test_batch_size)
 
-print("\nPerformance on holdout test set:\n")
-checkCorrelations(labels_test, preds_test)
+# print("\nPerformance on holdout test set:\n")
+# checkCorrelations(labels_test, preds_test)
 
 np.save('biolayer_weights', model.biolayer.weight.data.cpu().numpy())
 

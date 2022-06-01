@@ -14,13 +14,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 from BioLayer import BioLayer
 
-from utils import get_minibatch, evaluate, EarlyStopping, shuffle_data
-
+from utils import logger, get_minibatch, evaluate, EarlyStopping, shuffle_data
 from base import ModelBase
+from tqdm import tqdm
 
-import logging
-logging.basicConfig(level=os.environ.get("LOGLEVEL", "DEBUG"))
-logger = logging.getLogger(__name__)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -38,12 +35,9 @@ class weightConstraint(object):
             module.weight.data = w
 
 
-
-
-
 class BioCitrus(nn.Module):
 
-    def __init__(self, args, biomask):
+    def __init__(self, args, biomask, init_weights=None):
       super(BioCitrus, self).__init__()
 
 
@@ -71,6 +65,10 @@ class BioCitrus(nn.Module):
       
       ## Simple Layers
       self.biolayer = BioLayer(biomask, bias=None)
+      if init_weights is not None:
+        logger.debug('Using predefined bio weights')
+        self.biolayer.weight.data = init_weights
+
       self.tumor_hidden_layer = nn.Linear(self.nclusters, self.hidden_size, bias=True)
       self.tf_layer = nn.Linear(self.hidden_size+self.embedding_size, self.hidden_size, bias=True) 
 
@@ -104,8 +102,8 @@ class BioCitrus(nn.Module):
       )
 
       self.loss = nn.MSELoss().to(device)
-    
 
+  
     def forward(self, sga: torch.Tensor, can: torch.Tensor) -> Union[torch.Tensor, torch.Tensor]:
       
       sga = sga.to(device)
@@ -168,7 +166,10 @@ class BioCitrus(nn.Module):
       
       constraints = weightConstraint()
 
-      for iter_train in range(0, max_iter * len(train_set["can"]), batch_size):
+      r = range(0, max_iter * len(train_set["can"]), batch_size)
+      # pbar = tqdm(total = len(r))
+
+      for iter_train in r:
 
         batch_set = get_minibatch(
             train_set, iter_train, batch_size, batch_type="train"
@@ -177,8 +178,6 @@ class BioCitrus(nn.Module):
         preds, hid_tmr  = self.forward(batch_set["sga"], batch_set["can"])
         labels = batch_set["gep"].to(device)
 
-        labels = torch.rand_like(labels)
-
         self.optimizer.zero_grad()
         loss = self.loss(preds, labels)
         loss.backward()
@@ -186,6 +185,8 @@ class BioCitrus(nn.Module):
 
         self.biolayer.apply(constraints)
         self.gep_output_layer.apply(constraints)
+
+        # pbar.update()
 
 
         if (iter_train % len(train_set["can"])) == 0:
@@ -197,23 +198,25 @@ class BioCitrus(nn.Module):
               labels, preds, epsilon=self.epsilon
           )
 
+          # pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss.cpu().detach().item():.3f}')
+
+
           print(
-            "[%d,%d], spearman correlation: %.6f, pearson correlation: %.6f"
+            "correlation: %.5f, mse: %.5f"
             % (
-                iter_train // len(train_set["can"]),
-                iter_train % len(train_set["can"]),
                 corr_spearman,
-                corr_pearson,
+                loss.cpu().detach().item(),
             )
           )
 
-          if self.patience != 0:
-            if es.step(corr_pearson) and iter_train > 180 * test_inc_size:
+          # if self.patience != 0:
+          #   if es.step(corr_pearson) and iter_train > 180 * test_inc_size:
 
-              # self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
-              break
+          #     # self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
+          #     break
       
       #self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
+      # pbar.close()
 
     def test(self, test_set, test_batch_size, **kwargs):
         """Run forward process over the given whole test set.
@@ -261,9 +264,9 @@ class BioCitrus(nn.Module):
         return labels, preds, hid_tmr
 
 
-    def init_weights(self):
-      torch.nn.init.xavier_uniform(self.biolayer.weight)
-      torch.nn.init.xavier_uniform(self.linear.weight)
+    # def init_weights(self):
+    #   torch.nn.init.xavier_uniform(self.biolayer.weight)
+    #   torch.nn.init.xavier_uniform(self.linear.weight)
 
 
     def load_model(self, path="data/trained_model.pth"):

@@ -29,11 +29,44 @@ import networkx as nx
 from networkx.algorithms.components import connected_components
 
 
-from protclus import COACH, DPCLUS, MCODE
+# from protclus import COACH, DPCLUS, MCODE
 
 import logging
-logging.basicConfig(level=os.environ.get("LOGLEVEL", "DEBUG"))
-logger = logging.getLogger(__name__)
+
+class CustomFormatter(logging.Formatter):
+    """Logging colored formatter, adapted from https://stackoverflow.com/a/56944256/3638629"""
+
+    grey = '\x1b[38;21m'
+    blue = '\x1b[38;5;39m'
+    yellow = '\x1b[38;5;226m'
+    red = '\x1b[38;5;196m'
+    bold_red = '\x1b[31;1m'
+    reset = '\x1b[0m'
+
+    def __init__(self):
+        super().__init__()
+        self.fmt = '(%(filename)s : %(lineno)d) - %(levelname)8s | %(message)s'
+        self.FORMATS = {
+            logging.DEBUG: self.grey + self.fmt + self.reset,
+            logging.INFO: self.blue + self.fmt + self.reset,
+            logging.WARNING: self.yellow + self.fmt + self.reset,
+            logging.ERROR: self.red + self.fmt + self.reset,
+            logging.CRITICAL: self.bold_red + self.fmt + self.reset
+        }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+        
+logger = logging.getLogger("__name__")
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+cfh = CustomFormatter()
+ch.setFormatter(cfh)
+logger.addHandler(ch)
+
 
 def bool_ext(rbool):
     """Solve the problem that raw bool type is always True.
@@ -323,7 +356,7 @@ def get_ppi_edge_list(signor_file: str = './data/SIGNOR_PPI.tsv') -> list:
     ppi = pd.read_csv(signor_file, sep='\t')
     edges = ppi.query('TYPEA == "protein" or TYPEB == "protein"')[['ENTITYA', 'ENTITYB', 'SCORE']].dropna()
     edges = edges.loc[(~edges.ENTITYA.str.contains('"'))] #filter out non gene entries 
-    logger.info('loaded %i edges from the ppi' % len(edges))
+    logger.info('Loaded %i edges from the ppi' % len(edges))
     
 
     return edges.values
@@ -335,10 +368,12 @@ def get_overlap_network(gene_symbols: list, weighted: bool = True) -> nx.Graph:
     Code adapted from https://github.com/paulmorio/gincco
     """
 
+    logger.info('Using induced overlap network')
+
     ppi_edge_list = get_ppi_edge_list()
     sga_ppi_edge_list = []
 
-    for edge in tqdm(ppi_edge_list):
+    for edge in ppi_edge_list:
         if edge[0] in gene_symbols and edge[1] in gene_symbols:
             sga_ppi_edge_list.append(edge)
 
@@ -359,11 +394,13 @@ def get_connected_sga_ppi_network(gene_symbols: list, weighted: bool=True) -> nx
     Code adapted from https://github.com/paulmorio/gincco
     """
 
+    logger.info('Using largest connected PPI network')
+
     ppi_edge_list = get_ppi_edge_list()
     sga_ppi_edge_list = []
 
     ## find overlapping nodes in SGA and PPI
-    for edge in tqdm(ppi_edge_list):
+    for edge in ppi_edge_list:
         if edge[0] in gene_symbols and edge[1] in gene_symbols:
             sga_ppi_edge_list.append(edge)
 
@@ -383,7 +420,7 @@ def get_connected_sga_ppi_network(gene_symbols: list, weighted: bool=True) -> nx
 
 
 
-def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS'):
+def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS') -> Union[torch.Tensor, torch.Tensor]:
 
     """
     Generates a bio-informed mask for connecting 
@@ -396,7 +433,7 @@ def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS'):
     ## alterations and the ppi network
 
     # G = get_connected_sga_ppi_network(gene_symbols=genes)
-    # G = get_overlap_network(gene_symbols=genes)
+    G = get_overlap_network(gene_symbols=genes)
     # nx.write_edgelist(G, "graph.txt", data=False)
 
     ## Apply the clustering algorithm, creating unique protein clusters
@@ -414,7 +451,7 @@ def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS'):
     elif clust_algo == 'MCODE':
         precomputed_clusters = 'MCODE_clusters.txt'
     else:
-        print('Unknown Clustering Algorithm')
+        logging.warning('Unknown Clustering Algorithm')
         precomputed_clusters = 'DPCLUS_clusters.txt'
 
     with open(precomputed_clusters, "r") as fh:
@@ -425,8 +462,6 @@ def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS'):
             if len(c) == 0:
                 continue
             clusterindex_to_genes[i] = clustlist
-    
-
 
     ## Create mapping from sga genes to the protein clusters
     gene_to_clusterindices = defaultdict(list)
@@ -443,26 +478,35 @@ def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS'):
         else:
             genesymbol_to_index[index_to_genesymbol[key]] = key  
 
-    alteration_to_gene = dict(zip(sga.columns, [i.split('_')[1] for i in sga.columns]))
+    alteration_to_gene = dict(zip(sga.columns, [i.split('_')[1] for i in sga.columns])) ## 'SM_TUSC3':'TUSC3'
 
-    ## Create mask
+
+    ## Create mask and weights
     adj = np.zeros((len(sga.columns), len(list(clusterindex_to_genes.keys()))))
-    unmapped_genes = []
+    weights = np.zeros_like(adj)
 
-    for index in index_to_sga.keys():
-        gs = alteration_to_gene[index_to_sga[index]]
+    unmapped_genes = []
+    weight_tracker = defaultdict(float) #accumulate edge weights from sga nodes to clusters
+
+    for index, alt in index_to_sga.items():
+        gs = alteration_to_gene[index_to_sga[index]] # sga gene
         if gs in gene_to_clusterindices.keys():
             for cluster_index in gene_to_clusterindices[gs]:
                 adj[index, cluster_index] = 1
+                for g in clusterindex_to_genes[cluster_index]:    
+                    weight_tracker[cluster_index] += G.get_edge_data(gs, g, {'weight': 0.0})['weight']
         else:
             unmapped_genes.append(gs)
 
-    logger.info('Generated mask with: %i clusters and %i edges' % 
+
+    logger.info('Generated mask with %i clusters and %i edges' % 
         (len(list(clusterindex_to_genes.keys())), len(sga.columns)-len(unmapped_genes), ))
 
     biomask = torch.from_numpy(adj).int()
+    weights = torch.from_numpy(weights).float()
+    
 
-    return biomask
+    return biomask, weights
 
 
 def load_sga(sga_file: str = './data/CITRUS_SGA_SGAseparated.csv') -> pd.DataFrame:
@@ -490,9 +534,9 @@ class Data:
     """
 
     
-    def _read_csv(self, csv:str):
+    def _read_csv(self, csv:str, use_cache:bool=True):
         pqt_file = csv[:-3] + 'parquet'
-        if os.path.isfile(pqt_file):
+        if os.path.isfile(pqt_file) and use_cache:
             df = pd.read_parquet(pqt_file)
         else:
             df = pd.read_csv(csv)
@@ -511,7 +555,7 @@ class Data:
         self.cancerType_sga = self._read_csv(fcancerType_SGA)
         self.gene_tf_sga = self._read_csv(fgene_tf_SGA)
         self.gep_sga = self._read_csv(fGEP_SGA)
-        self.sga_sga = self._read_csv(fSGA_SGA)
+        self.sga_sga = self._read_csv(fSGA_SGA).replace(2, 1)
 
         assert all(self.gep_sga.index == self.sga_sga.index)
         assert all(self.cancerType_sga.index == self.sga_sga.index)
@@ -569,6 +613,10 @@ if __name__ == '__main__':
         fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
         fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv'
     )
+
+    generate_mask_from_ppi(data.sga_sga)
+
+
 
     # train_test_split()
 
