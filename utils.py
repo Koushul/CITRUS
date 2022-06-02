@@ -369,14 +369,20 @@ def get_overlap_network(gene_symbols: list, weighted: bool = True) -> nx.Graph:
     Code adapted from https://github.com/paulmorio/gincco
     """
 
-    logger.info('Using induced overlap network')
 
     ppi_edge_list = get_ppi_edge_list()
     sga_ppi_edge_list = []
+    common_genes = set()
+
 
     for edge in ppi_edge_list:
         if edge[0] in gene_symbols and edge[1] in gene_symbols:
+            common_genes.add(edge[0])
+            common_genes.add(edge[1])
             sga_ppi_edge_list.append(edge)
+
+
+    logger.debug('Using induced overlap network with %i common genes' % len(common_genes))
 
     G = nx.Graph()
 
@@ -395,16 +401,20 @@ def get_connected_sga_ppi_network(gene_symbols: list, weighted: bool=True) -> nx
     Code adapted from https://github.com/paulmorio/gincco
     """
 
-    logger.info('Using largest connected PPI network')
-
     ppi_edge_list = get_ppi_edge_list()
     sga_ppi_edge_list = []
+    common_genes = set()
 
     ## find overlapping nodes in SGA and PPI
     for edge in ppi_edge_list:
         if edge[0] in gene_symbols and edge[1] in gene_symbols:
+            common_genes.add(edge[0])
+            common_genes.add(edge[1])
             sga_ppi_edge_list.append(edge)
 
+
+    logger.debug('Using largest connected PPI network with %i common genes' % len(common_genes))
+    
     G = nx.Graph()
     
     if weighted:        

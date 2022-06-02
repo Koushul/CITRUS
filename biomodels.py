@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from BioLayer import BioLayer
+from MaskedBioLayer import MaskedBioLayer
 
 from utils import logger, get_minibatch, evaluate, EarlyStopping, shuffle_data
 from base import ModelBase
@@ -64,9 +64,11 @@ class BioCitrus(nn.Module):
       self.nclusters = biomask.shape[1]
       
       ## Simple Layers
-      self.biolayer = BioLayer(biomask, bias=None, init_weights=init_weights)
+      self.biolayer = nn.Sequential(
+        MaskedBioLayer(biomask, bias=None, init_weights=init_weights),
+        nn.Tanh()
+      )
 
-      self.tumor_hidden_layer = nn.Linear(self.nclusters, self.tf_size, bias=True)
 
       if self.cancer_type:
         ## cancer embedding
@@ -76,10 +78,20 @@ class BioCitrus(nn.Module):
             padding_idx = 0,
         )
 
-        self.tf_layer = nn.Linear(self.tf_size+self.embedding_size, self.tf_size, bias=True) 
+        self.tf_layer = nn.Sequential(
+          nn.Linear(self.nclusters+self.embedding_size, self.tf_size, bias=True),
+          nn.Tanh(),
+          nn.Dropout(p=self.dropout_rate)
+        )
+
       
       else:
-        self.tf_layer = nn.Linear(self.tf_size, self.tf_size, bias=True) 
+        self.tf_layer = nn.Sequential(
+          # nn.Linear(self.tf_size, self.tf_size, bias=True),
+          nn.Linear(self.nclusters, self.tf_size, bias=True),
+          nn.Tanh(),
+          nn.Dropout(p=self.dropout_rate)
+        )
 
       self.gep_output_layer = nn.Linear(
           in_features=self.tf_size, out_features=self.gep_size, bias=True
@@ -94,15 +106,11 @@ class BioCitrus(nn.Module):
       # register a hook with the mask value
       self.gep_output_layer.weight.register_hook(lambda grad: grad.mul_(mask_value))
 
-
-      self.layer_dropout_1 = nn.Dropout(p=self.dropout_rate)
-      self.layer_dropout_2 = nn.Dropout(p=self.dropout_rate)
-
       self.optimizer = optim.Adam(
           self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
       )
 
-      self.loss = nn.MSELoss()
+      self.criterion = nn.MSELoss()
 
       for name, param in self.named_parameters():
         logger.debug(f'{name} | {param.requires_grad} | {tuple(param.shape)}')
@@ -111,23 +119,19 @@ class BioCitrus(nn.Module):
     def forward(self, sga: torch.Tensor, can: torch.Tensor) -> Union[torch.Tensor, torch.Tensor]:
       
       sga = sga.to(device)
-      can = can.to(device)
 
-      ppi = torch.relu(self.biolayer(sga))
-      tmr_hidden = torch.relu(self.tumor_hidden_layer(ppi))
+      ppi = self.biolayer(sga)
 
       if self.cancer_type:
+          can = can.to(device)
           emb_can = self.layer_can_emb(can)
           emb_can = emb_can.view(-1, self.embedding_size)
-          emb_tmr = torch.cat((emb_can, tmr_hidden), dim=1)
+          emb_tmr = torch.cat((emb_can, ppi), dim=1)
       else:
-          emb_tmr = tmr_hidden
+          emb_tmr = ppi
 
-      emb_tmr_relu = self.layer_dropout_1(self.activation(emb_tmr))
-      tf = self.tf_layer(emb_tmr_relu)
-      tf_relu = self.layer_dropout_2(self.activation(tf))
-      
-      gexp = self.gep_output_layer(tf_relu)
+      tf = self.tf_layer(emb_tmr)      
+      gexp = self.gep_output_layer(tf)
 
       return gexp, tf
 
@@ -185,7 +189,7 @@ class BioCitrus(nn.Module):
         labels = batch_set["gep"].to(device)
 
         self.optimizer.zero_grad()
-        loss = self.loss(preds, labels)
+        loss = self.criterion(preds, labels)
         loss.backward()
         self.optimizer.step()
 
@@ -194,21 +198,20 @@ class BioCitrus(nn.Module):
 
         if not self.verbose: pbar.update()
 
-
         if (iter_train % len(train_set["can"])) == 0:
           train_set = shuffle_data(train_set)
         
         if iter_train == 0 or (test_inc_size and (iter_train % test_inc_size == 0)):
           labels, preds, _ = self.test(test_set, test_batch_size)
           corr_spearman, corr_pearson = evaluate(
-              labels, preds, epsilon=self.epsilon
-          )
+              labels, preds, epsilon=self.epsilon)
 
           if not self.verbose:
             pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss.cpu().detach().item():.3f} | {self.biolayer.weight.data.sum():.3f}')
 
           else:
-            print('\x1b[38;5;196m correlation: %.5f, loss: %.5f | w_: %.5f \x1b[0m' % ( corr_spearman, loss.cpu().detach().item(), self.biolayer.weight.data.sum()))
+            print('\x1b[38;5;196m correlation: %.5f, loss: %.5f | w_: %.5f \x1b[0m' % 
+                (corr_spearman, loss.cpu().detach().item(), self.biolayer[0].weight.data.sum()))
 
           if self.patience != 0:
             if es.step(corr_pearson) and iter_train > 180 * test_inc_size:

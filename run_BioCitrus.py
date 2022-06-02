@@ -46,7 +46,7 @@ parser.add_argument(
 
 parser.add_argument(
     "--algo", 
-    help="clustering algorithm to use on the portein-protein network", 
+    help="clustering algorithm to use on the portein-protein network (DPCLUS, MCODE, COACH)", 
     type=str, 
     default='DPCLUS'
 )
@@ -230,7 +230,7 @@ model.fit(
 )
 
 
-# sys.exit(1)
+sys.exit(1)
     
 logger.info("Evaluating on test set...")
 labels, preds, _  = model.test(
@@ -252,7 +252,7 @@ labels_test, preds_test, _  = model.test(test_set, test_batch_size=args.test_bat
 # print("\nPerformance on holdout test set:\n")
 # checkCorrelations(labels_test, preds_test)
 
-np.save(f'experiments/biolayer_weights_{random.randint(0, 99999)}', model.biolayer.weight.data.cpu().numpy())
+np.save(f'experiments/biolayer_weights_{random.randint(0, 99999)}', model.biolayer[0].weight.data.cpu().numpy())
 
 # dataset_out = {
 #     "labels": labels,         # measured exp 

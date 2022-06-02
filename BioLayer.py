@@ -61,22 +61,30 @@ class BioLayerMaskFunction(torch.autograd.Function):
         return grad_input, grad_weight, grad_bias, grad_mask
 
 
-class BioLayer(nn.Module):
-    def __init__(self, mask, bias=True, init_weights=None):
+class MaskedBioLayer(nn.Module):
+    def __init__(self, mask: torch.Tensor, bias:bool=True, init_weights:torch.Tensor=None):
         """
-        extends torch.nn module which masks connection.
-        operates as a linear layer
-
+        MaskedBioLayer operate as a linear layer, but
+        with masked connections
+        
         Arguments
         ------------------
-        mask [torch.tensor]:
+        mask [torch.Tensor]:
             the shape is (n_input_feature, n_output_feature).
             the elements are 0 or 1 which declare un-connected or
-            connected.
+            connected
+        
         bias [bool]:
-            flg of bias.
+            flag of bias.
+
+        init_weights [torch.Tensor]:
+            initial weight matrix
+            the shape has to be similar to that of the mask
+        
         """
-        super(BioLayer, self).__init__()
+        super(MaskedBioLayer, self).__init__()
+
+        assert init_weights.shape == mask.shape
 
         self.input_features = mask.shape[0]
         self.output_features = mask.shape[1]
