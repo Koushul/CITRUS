@@ -6,6 +6,7 @@
 
 import os
 import argparse
+import random
 from utils import cfh, logger, Data, bool_ext, checkCorrelations, generate_mask_from_ppi
 from biomodels import BioCitrus
 import torch
@@ -40,13 +41,7 @@ parser.add_argument(
     "--embedding_size",
     help="embedding dimension of genes and tumors",
     type=int,
-    default=512,
-)
-parser.add_argument(
-    "--hidden_size", 
-    help="hidden layer dimension of MLP decoder", 
-    type=int, 
-    default=320
+    default=64,
 )
 
 parser.add_argument(
@@ -61,13 +56,13 @@ parser.add_argument(
     "--learning_rate", 
     help="learning rate for Adam", 
     type=float, 
-    default=1e-3
+    default=1e-2
 )
 parser.add_argument(
     "--max_iter", 
     help="maximum number of training iterations", 
     type=int, 
-    default=1000
+    default=300
 )
 parser.add_argument(
     "--max_fscore",
@@ -109,7 +104,7 @@ parser.add_argument(
     "--weight_decay", 
     help="coefficient of l2 regularizer", 
     type=float, 
-    default=1e-5
+    default=1e-3
 )
 parser.add_argument(
     "--activation",
@@ -169,7 +164,14 @@ parser.add_argument(
 
 parser.add_argument(
     "--ppi_weights", 
-    help="the count for training", 
+    help="", 
+    type=bool_ext, 
+    default=True
+)
+
+parser.add_argument(
+    "--verbose", 
+    help="", 
     type=bool_ext, 
     default=False
 )
@@ -195,6 +197,9 @@ args.can_size = len(np.unique(data.cancer_types))
 
 
 biomask, weights = generate_mask_from_ppi(sga = data.sga_sga, clust_algo=args.algo)
+
+np.save(f'experiments/init_weights', weights)
+
 biomask = biomask.to(device)
 weights = weights.t().to(device)
 
@@ -210,22 +215,23 @@ model = BioCitrus(args, biomask=biomask, init_weights=weights)
 model.to(device)
 
 
-if args.train_model:  # train from scratch
+# sys.exit(1)
 
-    model.fit(
-        train_set,
-        test_set,
-        batch_size=args.batch_size,
-        test_batch_size=args.test_batch_size,
-        max_iter=args.max_iter,
-        max_fscore=args.max_fscore,
-        test_inc_size=args.test_inc_size,
-    )
-    model.save_model(os.path.join(args.output_dir, "trained_model.pth"))
-else:  # or directly load trained model
-    model.load_model(os.path.join(args.input_dir, "trained_model.pth"))
+
+model.fit(
+    train_set,
+    test_set,
+    batch_size=args.batch_size,
+    test_batch_size=args.test_batch_size,
+    max_iter=args.max_iter,
+    max_fscore=args.max_fscore,
+    test_inc_size=args.test_inc_size, 
+    verbose = args.verbose
+)
+
+
+# sys.exit(1)
     
-# evaluation
 logger.info("Evaluating on test set...")
 labels, preds, _  = model.test(
     test_set, test_batch_size=args.test_batch_size
@@ -233,7 +239,8 @@ labels, preds, _  = model.test(
 
 checkCorrelations(labels, preds)
 
-# print("\nPredicting on main dataset...\n")
+
+# logger.info("Evaluating on test set...")
 # get training attn_wt and others
 # labels, preds, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr = model.test(
 #     dataset, test_batch_size=args.test_batch_size
@@ -245,7 +252,7 @@ labels_test, preds_test, _  = model.test(test_set, test_batch_size=args.test_bat
 # print("\nPerformance on holdout test set:\n")
 # checkCorrelations(labels_test, preds_test)
 
-np.save('biolayer_weights', model.biolayer.weight.data.cpu().numpy())
+np.save(f'experiments/biolayer_weights_{random.randint(0, 99999)}', model.biolayer.weight.data.cpu().numpy())
 
 # dataset_out = {
 #     "labels": labels,         # measured exp 

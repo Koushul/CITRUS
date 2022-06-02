@@ -47,7 +47,7 @@ class BioCitrus(nn.Module):
 
       self.embedding_size = args.embedding_size
       self.can_size = args.can_size
-      self.hidden_size = args.hidden_size
+      self.tf_size = args.tf_gene.shape[0]
       self.gep_size = args.gep_size
       self.tf_gene = args.tf_gene
       self.patience = args.patience
@@ -64,17 +64,25 @@ class BioCitrus(nn.Module):
       self.nclusters = biomask.shape[1]
       
       ## Simple Layers
-      self.biolayer = BioLayer(biomask, bias=None)
-      if init_weights is not None:
-        logger.debug('Using predefined bio weights')
-        self.biolayer.weight.data = init_weights
+      self.biolayer = BioLayer(biomask, bias=None, init_weights=init_weights)
 
-      self.tumor_hidden_layer = nn.Linear(self.nclusters, self.hidden_size, bias=True)
-      self.tf_layer = nn.Linear(self.hidden_size+self.embedding_size, self.hidden_size, bias=True) 
+      self.tumor_hidden_layer = nn.Linear(self.nclusters, self.tf_size, bias=True)
 
+      if self.cancer_type:
+        ## cancer embedding
+        self.layer_can_emb = nn.Embedding(
+            num_embeddings = self.can_size + 1,
+            embedding_dim = self.embedding_size,
+            padding_idx = 0,
+        )
+
+        self.tf_layer = nn.Linear(self.tf_size+self.embedding_size, self.tf_size, bias=True) 
+      
+      else:
+        self.tf_layer = nn.Linear(self.tf_size, self.tf_size, bias=True) 
 
       self.gep_output_layer = nn.Linear(
-          in_features=self.hidden_size, out_features=self.gep_size, bias=True
+          in_features=self.tf_size, out_features=self.gep_size, bias=True
       ) ## gene expression output layer
 
       ## TODO: Refactor this to use the BioLayerMaskFunction instead
@@ -86,13 +94,6 @@ class BioCitrus(nn.Module):
       # register a hook with the mask value
       self.gep_output_layer.weight.register_hook(lambda grad: grad.mul_(mask_value))
 
-      ## cancer embedding
-      self.layer_can_emb = nn.Embedding(
-          num_embeddings = self.can_size + 1,
-          embedding_dim = self.embedding_size,
-          padding_idx = 0,
-      )
-
 
       self.layer_dropout_1 = nn.Dropout(p=self.dropout_rate)
       self.layer_dropout_2 = nn.Dropout(p=self.dropout_rate)
@@ -101,7 +102,10 @@ class BioCitrus(nn.Module):
           self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
       )
 
-      self.loss = nn.MSELoss().to(device)
+      self.loss = nn.MSELoss()
+
+      for name, param in self.named_parameters():
+        logger.debug(f'{name} | {param.requires_grad} | {tuple(param.shape)}')
 
   
     def forward(self, sga: torch.Tensor, can: torch.Tensor) -> Union[torch.Tensor, torch.Tensor]:
@@ -109,25 +113,23 @@ class BioCitrus(nn.Module):
       sga = sga.to(device)
       can = can.to(device)
 
-      emb_can = self.layer_can_emb(can)
-      emb_can = emb_can.view(-1, self.embedding_size)
-
-      h_relu = torch.relu(self.biolayer(sga))
-      h = torch.relu(self.tumor_hidden_layer(h_relu))
+      ppi = torch.relu(self.biolayer(sga))
+      tmr_hidden = torch.relu(self.tumor_hidden_layer(ppi))
 
       if self.cancer_type:
-          emb_tmr = torch.cat((emb_can, h), dim=1)
+          emb_can = self.layer_can_emb(can)
+          emb_can = emb_can.view(-1, self.embedding_size)
+          emb_tmr = torch.cat((emb_can, tmr_hidden), dim=1)
       else:
-          emb_tmr = h
+          emb_tmr = tmr_hidden
 
       emb_tmr_relu = self.layer_dropout_1(self.activation(emb_tmr))
-      hid_tmr = self.tf_layer(emb_tmr_relu)
-      hid_tmr_relu = self.layer_dropout_2(self.activation(hid_tmr))
+      tf = self.tf_layer(emb_tmr_relu)
+      tf_relu = self.layer_dropout_2(self.activation(tf))
       
-      preds = self.gep_output_layer(hid_tmr_relu)
+      gexp = self.gep_output_layer(tf_relu)
 
-      return preds, hid_tmr
-
+      return gexp, tf
 
 
     def fit(
@@ -160,14 +162,18 @@ class BioCitrus(nn.Module):
 
       """
 
+      self.verbose = kwargs.get('verbose', True)
+
 
       if self.patience != 0:
           es = EarlyStopping(patience=self.patience)
       
       constraints = weightConstraint()
+      print('')
+
 
       r = range(0, max_iter * len(train_set["can"]), batch_size)
-      # pbar = tqdm(total = len(r))
+      if not self.verbose: pbar = tqdm(total = len(r))
 
       for iter_train in r:
 
@@ -183,40 +189,32 @@ class BioCitrus(nn.Module):
         loss.backward()
         self.optimizer.step()
 
-        self.biolayer.apply(constraints)
+        # self.biolayer.apply(constraints)
         self.gep_output_layer.apply(constraints)
 
-        # pbar.update()
+        if not self.verbose: pbar.update()
 
 
         if (iter_train % len(train_set["can"])) == 0:
           train_set = shuffle_data(train_set)
         
-        if test_inc_size and (iter_train % test_inc_size == 0):
+        if iter_train == 0 or (test_inc_size and (iter_train % test_inc_size == 0)):
           labels, preds, _ = self.test(test_set, test_batch_size)
           corr_spearman, corr_pearson = evaluate(
               labels, preds, epsilon=self.epsilon
           )
 
-          # pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss.cpu().detach().item():.3f}')
+          if not self.verbose:
+            pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss.cpu().detach().item():.3f} | {self.biolayer.weight.data.sum():.3f}')
 
+          else:
+            print('\x1b[38;5;196m correlation: %.5f, loss: %.5f | w_: %.5f \x1b[0m' % ( corr_spearman, loss.cpu().detach().item(), self.biolayer.weight.data.sum()))
 
-          print(
-            "correlation: %.5f, mse: %.5f"
-            % (
-                corr_spearman,
-                loss.cpu().detach().item(),
-            )
-          )
-
-          # if self.patience != 0:
-          #   if es.step(corr_pearson) and iter_train > 180 * test_inc_size:
-
-          #     # self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
-          #     break
-      
-      #self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
-      # pbar.close()
+          if self.patience != 0:
+            if es.step(corr_pearson) and iter_train > 180 * test_inc_size:
+              break
+            
+      if not self.verbose: pbar.close()
 
     def test(self, test_set, test_batch_size, **kwargs):
         """Run forward process over the given whole test set.

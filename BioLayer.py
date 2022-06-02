@@ -62,7 +62,7 @@ class BioLayerMaskFunction(torch.autograd.Function):
 
 
 class BioLayer(nn.Module):
-    def __init__(self, mask, bias=True):
+    def __init__(self, mask, bias=True, init_weights=None):
         """
         extends torch.nn module which masks connection.
         operates as a linear layer
@@ -80,13 +80,14 @@ class BioLayer(nn.Module):
 
         self.input_features = mask.shape[0]
         self.output_features = mask.shape[1]
+        self.init_weights = init_weights
 
         if isinstance(mask, torch.Tensor):
             self.mask = mask.type(torch.float).t()
         else:
             self.mask = torch.tensor(mask, dtype=torch.float).t()
 
-        self.mask = nn.Parameter(self.mask, requires_grad=False).to(device)
+        self.mask = nn.Parameter(self.mask, requires_grad=False)
 
         # nn.Parameter is a special kind of Tensor, that will get
         # automatically registered as Module's parameter once it's assigned
@@ -96,10 +97,10 @@ class BioLayer(nn.Module):
         # .register_buffer() to register buffers.
         # nn.Parameters require gradients by default.
 
-        self.weight = nn.Parameter(torch.Tensor(self.output_features, self.input_features)).to(device)
+        self.weight = nn.Parameter(torch.empty(self.output_features, self.input_features))
 
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(self.output_features))
+            self.bias = nn.Parameter(torch.empty(self.output_features))
         else:
             # You should always register all possible parameters, but the
             # optional ones can be None if you want.
@@ -110,8 +111,12 @@ class BioLayer(nn.Module):
         self.weight.data = self.weight.data * self.mask
 
     def reset_parameters(self):
-        stdv = 1. / math.sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
+        if self.init_weights is not None:
+            self.weight = nn.Parameter(self.init_weights)
+        else:
+            stdv = 1. / math.sqrt(self.weight.size(1))
+            self.weight.data.uniform_(-stdv, stdv)
+        
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
 

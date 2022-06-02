@@ -32,6 +32,7 @@ from networkx.algorithms.components import connected_components
 # from protclus import COACH, DPCLUS, MCODE
 
 import logging
+level = logging.DEBUG
 
 class CustomFormatter(logging.Formatter):
     """Logging colored formatter, adapted from https://stackoverflow.com/a/56944256/3638629"""
@@ -60,9 +61,9 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
         
 logger = logging.getLogger("__name__")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(level)
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+ch.setLevel(level)
 cfh = CustomFormatter()
 ch.setFormatter(cfh)
 logger.addHandler(ch)
@@ -356,7 +357,7 @@ def get_ppi_edge_list(signor_file: str = './data/SIGNOR_PPI.tsv') -> list:
     ppi = pd.read_csv(signor_file, sep='\t')
     edges = ppi.query('TYPEA == "protein" or TYPEB == "protein"')[['ENTITYA', 'ENTITYB', 'SCORE']].dropna()
     edges = edges.loc[(~edges.ENTITYA.str.contains('"'))] #filter out non gene entries 
-    logger.info('Loaded %i edges from the ppi' % len(edges))
+    logger.debug('Loaded %i edges from the ppi' % len(edges))
     
 
     return edges.values
@@ -486,7 +487,7 @@ def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS') -> Union[
     weights = np.zeros_like(adj)
 
     unmapped_genes = []
-    weight_tracker = defaultdict(float) #accumulate edge weights from sga nodes to clusters
+    # weight_tracker = defaultdict(float) #accumulate edge weights from sga nodes to clusters
 
     for index, alt in index_to_sga.items():
         gs = alteration_to_gene[index_to_sga[index]] # sga gene
@@ -494,7 +495,8 @@ def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS') -> Union[
             for cluster_index in gene_to_clusterindices[gs]:
                 adj[index, cluster_index] = 1
                 for g in clusterindex_to_genes[cluster_index]:    
-                    weight_tracker[cluster_index] += G.get_edge_data(gs, g, {'weight': 0.0})['weight']
+                    weights[index, cluster_index] += G.get_edge_data(gs, g, {'weight': 0.0})['weight']
+                    # weight_tracker[cluster_index] += G.get_edge_data(gs, g, {'weight': 0.0})['weight']
         else:
             unmapped_genes.append(gs)
 
