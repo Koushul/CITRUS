@@ -62,11 +62,11 @@ class BioLayerMaskFunction(torch.autograd.Function):
 
 
 class MaskedBioLayer(nn.Module):
+    """MaskedBioLayer operate as a linear layer, but
+        with masked connections"""
+
     def __init__(self, mask: torch.Tensor, bias:bool=True, init_weights:torch.Tensor=None):
         """
-        MaskedBioLayer operate as a linear layer, but
-        with masked connections
-        
         Arguments
         ------------------
         mask [torch.Tensor]:
@@ -79,12 +79,12 @@ class MaskedBioLayer(nn.Module):
 
         init_weights [torch.Tensor]:
             initial weight matrix
-            the shape has to be similar to that of the mask
+            the shape has to be euqal to that of the mask transposed
         
         """
         super(MaskedBioLayer, self).__init__()
 
-        assert init_weights.shape == mask.shape
+        if init_weights is not None: assert init_weights.T.shape == mask.shape, (init_weights.shape, mask.shape)
 
         self.input_features = mask.shape[0]
         self.output_features = mask.shape[1]
@@ -95,7 +95,7 @@ class MaskedBioLayer(nn.Module):
         else:
             self.mask = torch.tensor(mask, dtype=torch.float).t()
 
-        self.mask = nn.Parameter(self.mask, requires_grad=False)
+        self.mask = nn.Parameter(self.mask.to(device), requires_grad=False)
 
         # nn.Parameter is a special kind of Tensor, that will get
         # automatically registered as Module's parameter once it's assigned
@@ -105,10 +105,10 @@ class MaskedBioLayer(nn.Module):
         # .register_buffer() to register buffers.
         # nn.Parameters require gradients by default.
 
-        self.weight = nn.Parameter(torch.empty(self.output_features, self.input_features))
+        self.weight = nn.Parameter(torch.ones(self.output_features, self.input_features).to(device))
 
         if bias:
-            self.bias = nn.Parameter(torch.empty(self.output_features))
+            self.bias = nn.Parameter(torch.ones(self.output_features).to(device))
         else:
             # You should always register all possible parameters, but the
             # optional ones can be None if you want.
@@ -122,11 +122,14 @@ class MaskedBioLayer(nn.Module):
         if self.init_weights is not None:
             self.weight = nn.Parameter(self.init_weights)
         else:
-            stdv = 1. / math.sqrt(self.weight.size(1))
-            self.weight.data.uniform_(-stdv, stdv)
+            # stdv = 1. / math.sqrt(self.weight.size(1))
+            # self.weight.data.uniform_(-stdv, stdv)
+            self.weight = nn.Parameter(torch.ones_like(self.mask))
+
         
         if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
+            # self.bias.data.uniform_(-stdv, stdv)
+            self.bias.data = nn.Parameter(torch.ones_like(self.bias.data).to(device))
 
 
     def forward(self, input):

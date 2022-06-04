@@ -7,7 +7,7 @@
 import os
 import argparse
 import random
-from utils import cfh, logger, Data, bool_ext, checkCorrelations, generate_mask_from_ppi
+from utils import cfh, logger, Data, bool_ext, checkCorrelations, generate_masks_from_ppi
 from biomodels import BioCitrus
 import torch
 import numpy as np
@@ -37,18 +37,12 @@ parser.add_argument(
     type=str,
     default="./output",
 )
-parser.add_argument(
-    "--embedding_size",
-    help="embedding dimension of genes and tumors",
-    type=int,
-    default=64,
-)
 
 parser.add_argument(
     "--algo", 
     help="clustering algorithm to use on the portein-protein network (DPCLUS, MCODE, COACH)", 
     type=str, 
-    default='DPCLUS'
+    default='COACH'
 )
 
 
@@ -104,7 +98,7 @@ parser.add_argument(
     "--weight_decay", 
     help="coefficient of l2 regularizer", 
     type=float, 
-    default=1e-3
+    default=1e-2
 )
 parser.add_argument(
     "--activation",
@@ -116,7 +110,7 @@ parser.add_argument(
     "--patience", 
     help="earlystopping patience", 
     type=int, 
-    default=30
+    default=5
 )
 parser.add_argument(
     "--mask01",
@@ -135,7 +129,7 @@ parser.add_argument(
     "--cancer_type",
     help="whether to use cancer type or not",
     type=bool_ext,
-    default=True,
+    default=False,
 )
 parser.add_argument(
     "--train_model",
@@ -166,7 +160,7 @@ parser.add_argument(
     "--ppi_weights", 
     help="", 
     type=bool_ext, 
-    default=True
+    default=False
 )
 
 parser.add_argument(
@@ -175,6 +169,30 @@ parser.add_argument(
     type=bool_ext, 
     default=False
 )
+
+parser.add_argument(
+    "--constrain", 
+    help="force weight and biases to be strictly non-negative", 
+    type=bool_ext, 
+    default=True
+)
+
+parser.add_argument(
+    "--biases", 
+    help="enable all nn.Linear biases", 
+    type=bool_ext, 
+    default=False
+)
+
+parser.add_argument(
+    "--sparse", 
+    help="only use SIGNOR data, resulting in sparser connections", 
+    type=bool_ext, 
+    default=True
+)
+
+
+
 
 args = parser.parse_args()
 
@@ -196,48 +214,62 @@ args.tf_gene = data.gene_tf_sga.values.T
 args.can_size = len(np.unique(data.cancer_types))
 
 
-biomask, weights = generate_mask_from_ppi(sga = data.sga_sga, clust_algo=args.algo)
+sga_mask, sga_weights, tf_mask, tf_weights = generate_masks_from_ppi(sga = data.sga_sga, tf = data.gene_tf_sga, clust_algo=args.algo, sparse=args.sparse)
 
-np.save(f'experiments/init_weights', weights)
+# np.save(f'experiments/init_weights', weights)
 
-biomask = biomask.to(device)
-weights = weights.t().to(device)
+sga_mask = sga_mask.to(device)
+sga_weights = sga_weights.t().to(device)
+tf_mask = tf_mask.t().to(device)
+tf_weights = tf_weights.to(device)
 
 if not args.ppi_weights:
-    weights = None
+    ppi_weights = None
+    tf_weights = None
 
+# sga_mask = torch.ones_like(sga_mask)
+# tf_mask = torch.ones_like(tf_mask)
 
 # biomask = torch.zeros_like(biomask)
 # idx = torch.randperm(biomask.nelement())
 # biomask = biomask.view(-1)[idx].view(biomask.size())
 
-model = BioCitrus(args, biomask=biomask, init_weights=weights)  
-model.to(device)
 
+model = BioCitrus(
+    args = args, 
+    sga_ppi_mask = sga_mask, 
+    ppi_tf_mask = tf_mask, 
+    sga_ppi_weights = None, 
+    ppi_tf_weights = None,
+    enable_bias = args.biases
+).to(device)
 
 # sys.exit(1)
 
+try:
+    model.fit(
+        train_set,
+        test_set,
+        batch_size=args.batch_size,
+        test_batch_size=args.test_batch_size,
+        max_iter=args.max_iter,
+        max_fscore=args.max_fscore,
+        test_inc_size=args.test_inc_size, 
+        verbose = args.verbose
+    )
+except KeyboardInterrupt: # exit gracefully
+    logger.warning('Training Interrupted by User')
 
-model.fit(
-    train_set,
-    test_set,
-    batch_size=args.batch_size,
-    test_batch_size=args.test_batch_size,
-    max_iter=args.max_iter,
-    max_fscore=args.max_fscore,
-    test_inc_size=args.test_inc_size, 
-    verbose = args.verbose
-)
 
-
-sys.exit(1)
+# sys.exit(1)
     
-logger.info("Evaluating on test set...")
-labels, preds, _  = model.test(
-    test_set, test_batch_size=args.test_batch_size
-)
+# # Evaluating the model on the test set.
+# logger.info("Evaluating on test set...")
+# labels, preds, _  = model.test(
+#     test_set, test_batch_size=args.test_batch_size
+# )
 
-checkCorrelations(labels, preds)
+# checkCorrelations(labels, preds)
 
 
 # logger.info("Evaluating on test set...")
@@ -247,12 +279,12 @@ checkCorrelations(labels, preds)
 # )
 # print("Predicting on test dataset...\n")
 # predict on holdout and evaluate the performance
-labels_test, preds_test, _  = model.test(test_set, test_batch_size=args.test_batch_size)
+# labels_test, preds_test, _  = model.test(test_set, test_batch_size=args.test_batch_size)
 
 # print("\nPerformance on holdout test set:\n")
 # checkCorrelations(labels_test, preds_test)
 
-np.save(f'experiments/biolayer_weights_{random.randint(0, 99999)}', model.biolayer[0].weight.data.cpu().numpy())
+np.save(f'experiments/sga_layer_weights_{random.randint(0, 99999)}', model.sga_layer[0].weight.data.cpu().numpy())
 
 # dataset_out = {
 #     "labels": labels,         # measured exp 

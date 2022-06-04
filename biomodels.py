@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from MaskedBioLayer import MaskedBioLayer
+from BioLayer import MaskedBioLayer
 
 from utils import logger, get_minibatch, evaluate, EarlyStopping, shuffle_data
 from base import ModelBase
@@ -30,71 +30,59 @@ class weightConstraint(object):
 
         """        
         if hasattr(module, "weight"):
-            w = module.weight.data
-            w = torch.abs(w)
-            module.weight.data = w
+          w = module.weight.data
+          w = torch.abs(w)
+          # w = torch.where(w >= 0.1, w, torch.full_like(w, 0.1))
+          module.weight.data = w
+
+        if hasattr(module, "bias") and module.bias is not None:
+          b = module.bias.data
+          # b = torch.abs(b)
+          b = torch.ones_like(b)
+          # b = torch.zeros_like(b)
+
+          module.bias.data = b
 
 
 class BioCitrus(nn.Module):
 
-    def __init__(self, args, biomask, init_weights=None):
+    def __init__(self, args, sga_ppi_mask, ppi_tf_mask, sga_ppi_weights=None, ppi_tf_weights=None, enable_bias=False):
       super(BioCitrus, self).__init__()
-
 
       ## Hyperparameters
       self.epsilon = 1e-4
       self.dropout_input = True
 
-      self.embedding_size = args.embedding_size
       self.can_size = args.can_size
       self.tf_size = args.tf_gene.shape[0]
       self.gep_size = args.gep_size
       self.tf_gene = args.tf_gene
       self.patience = args.patience
       self.cancer_type = args.cancer_type
-
+      self.constrain = args.constrain
       self.learning_rate = args.learning_rate
       self.dropout_rate = args.dropout_rate
       self.weight_decay = args.weight_decay
-      if args.activation == "relu":
-          self.activation = torch.relu
-      if args.activation == "tanh":
-          self.activation = torch.tanh
+      self.nclusters = sga_ppi_mask.shape[1]
 
-      self.nclusters = biomask.shape[1]
-      
+      self.to(device)      
       ## Simple Layers
-      self.biolayer = nn.Sequential(
-        MaskedBioLayer(biomask, bias=None, init_weights=init_weights),
-        nn.Tanh()
+      self.sga_layer = nn.Sequential(
+        MaskedBioLayer(sga_ppi_mask, bias=False, init_weights=sga_ppi_weights),
+        nn.Tanh(),
+        # nn.Dropout(p=self.dropout_rate)
       )
 
 
-      if self.cancer_type:
-        ## cancer embedding
-        self.layer_can_emb = nn.Embedding(
-            num_embeddings = self.can_size + 1,
-            embedding_dim = self.embedding_size,
-            padding_idx = 0,
-        )
-
-        self.tf_layer = nn.Sequential(
-          nn.Linear(self.nclusters+self.embedding_size, self.tf_size, bias=True),
-          nn.Tanh(),
-          nn.Dropout(p=self.dropout_rate)
-        )
-
-      
-      else:
-        self.tf_layer = nn.Sequential(
-          # nn.Linear(self.tf_size, self.tf_size, bias=True),
-          nn.Linear(self.nclusters, self.tf_size, bias=True),
-          nn.Tanh(),
-          nn.Dropout(p=self.dropout_rate)
-        )
+      self.tf_layer = nn.Sequential(
+        # nn.Linear(self.nclusters, self.tf_size, bias=True),
+        MaskedBioLayer(ppi_tf_mask, bias=enable_bias, init_weights=ppi_tf_weights),
+        nn.Tanh(),
+        # nn.Dropout(p=self.dropout_rate)
+      )
 
       self.gep_output_layer = nn.Linear(
-          in_features=self.tf_size, out_features=self.gep_size, bias=True
+          in_features=self.tf_size, out_features=self.gep_size, bias=False
       ) ## gene expression output layer
 
       ## TODO: Refactor this to use the BioLayerMaskFunction instead
@@ -114,23 +102,18 @@ class BioCitrus(nn.Module):
 
       for name, param in self.named_parameters():
         logger.debug(f'{name} | {param.requires_grad} | {tuple(param.shape)}')
+      print('')
+      logger.debug(f'Constraints Enabled: {self.constrain}')
+      logger.debug(f'Biases Enabled: {enable_bias}')
+
 
   
     def forward(self, sga: torch.Tensor, can: torch.Tensor) -> Union[torch.Tensor, torch.Tensor]:
       
       sga = sga.to(device)
 
-      ppi = self.biolayer(sga)
-
-      if self.cancer_type:
-          can = can.to(device)
-          emb_can = self.layer_can_emb(can)
-          emb_can = emb_can.view(-1, self.embedding_size)
-          emb_tmr = torch.cat((emb_can, ppi), dim=1)
-      else:
-          emb_tmr = ppi
-
-      tf = self.tf_layer(emb_tmr)      
+      ppi = self.sga_layer(sga)
+      tf = self.tf_layer(ppi)      
       gexp = self.gep_output_layer(tf)
 
       return gexp, tf
@@ -193,8 +176,10 @@ class BioCitrus(nn.Module):
         loss.backward()
         self.optimizer.step()
 
-        # self.biolayer.apply(constraints)
-        self.gep_output_layer.apply(constraints)
+        if self.constrain:
+          self.sga_layer.apply(constraints)
+          self.tf_layer.apply(constraints)
+          self.gep_output_layer.apply(constraints)
 
         if not self.verbose: pbar.update()
 
@@ -207,11 +192,15 @@ class BioCitrus(nn.Module):
               labels, preds, epsilon=self.epsilon)
 
           if not self.verbose:
-            pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss.cpu().detach().item():.3f} | {self.biolayer.weight.data.sum():.3f}')
+            pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss.cpu().detach().item():.3f}')
 
           else:
-            print('\x1b[38;5;196m correlation: %.5f, loss: %.5f | w_: %.5f \x1b[0m' % 
-                (corr_spearman, loss.cpu().detach().item(), self.biolayer[0].weight.data.sum()))
+            print('\x1b[38;5;196m correlation: %.3f, loss: %.3f | w_: %.3f | w_: %.3f \x1b[0m' % 
+                (corr_spearman, 
+                loss.cpu().detach().item(), 
+                self.sga_layer[0].weight.data.sum(), 
+                self.tf_layer[0].weight.data.sum())
+              )
 
           if self.patience != 0:
             if es.step(corr_pearson) and iter_train > 180 * test_inc_size:

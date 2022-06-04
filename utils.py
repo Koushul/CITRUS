@@ -29,7 +29,6 @@ import networkx as nx
 from networkx.algorithms.components import connected_components
 
 
-# from protclus import COACH, DPCLUS, MCODE
 
 import logging
 level = logging.DEBUG
@@ -50,7 +49,7 @@ class CustomFormatter(logging.Formatter):
         self.FORMATS = {
             logging.DEBUG: self.grey + self.fmt + self.reset,
             logging.INFO: self.blue + self.fmt + self.reset,
-            logging.WARNING: self.yellow + self.fmt + self.reset,
+            logging.WARNING: self.bold_red + self.fmt + self.reset,
             logging.ERROR: self.red + self.fmt + self.reset,
             logging.CRITICAL: self.bold_red + self.fmt + self.reset
         }
@@ -346,31 +345,42 @@ class EarlyStopping(object):
             if mode == "max":
                 self.is_better = lambda a, best: a > best + (best * min_delta / 100)
 
-def get_ppi_edge_list(signor_file: str = './data/SIGNOR_PPI.tsv') -> list:
+def get_ppi_edge_list(signor_file: str = 'data/SIGNOR_PPI.tsv', snap_file: str = 'data/snap_ppi.csv', sparse=True) -> list:
     """
     Generate a list of all edges from the SIGNOR Protein-Protein interaction graph
     SIGNOR tsv download: https://signor.uniroma2.it/downloads.php
+    SNAP download: https://snap.stanford.edu/biodata/datasets/10000/10000-PP-Pathways.html
     """
 
-    ## TODO: Add filtering options for score thresholds and interaction types
-
-    ppi = pd.read_csv(signor_file, sep='\t')
-    edges = ppi.query('TYPEA == "protein" or TYPEB == "protein"')[['ENTITYA', 'ENTITYB', 'SCORE']].dropna()
+    signor_ppi = pd.read_csv(signor_file, sep='\t')
+    edges = signor_ppi.query('TYPEA == "protein" or TYPEB == "protein"')[['ENTITYA', 'ENTITYB', 'SCORE']].dropna()
     edges = edges.loc[(~edges.ENTITYA.str.contains('"'))] #filter out non gene entries 
-    logger.debug('Loaded %i edges from the ppi' % len(edges))
+    edges = edges[edges['ENTITYA'] != edges['ENTITYB']]
+
+    if sparse:
+        logger.debug('Loaded %i edges from the SIGNOR Network only' % len(edges))
+        return edges.values
+        
+    snap_ppi = pd.read_csv(snap_file)
+    snap_ppi['SCORE'] = 1.0 # unavailable
+    edges['SCORE'] = 1.0 # unreliable
+
+    combined_ppi = pd.concat([edges, snap_ppi]).drop_duplicates().dropna()
+    combined_ppi = combined_ppi[combined_ppi['ENTITYA'] != combined_ppi['ENTITYB']]
     
+    logger.debug('Loaded %i edges from the SIGNOR and SNAP Networks' % len(combined_ppi))
 
-    return edges.values
+    return combined_ppi.values
 
 
-def get_overlap_network(gene_symbols: list, weighted: bool = True) -> nx.Graph:
+def get_overlap_network(gene_symbols: list, weighted: bool = True, sparse: bool = True) -> nx.Graph:
     """
     Return a subgraph of relevant genes induced from the Protein-Protein Interaction Network
     Code adapted from https://github.com/paulmorio/gincco
     """
 
 
-    ppi_edge_list = get_ppi_edge_list()
+    ppi_edge_list = get_ppi_edge_list(sparse=sparse)
     sga_ppi_edge_list = []
     common_genes = set()
 
@@ -431,38 +441,65 @@ def get_connected_sga_ppi_network(gene_symbols: list, weighted: bool=True) -> nx
 
 
 
-def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS') -> Union[torch.Tensor, torch.Tensor]:
+def generate_masks_from_ppi(sga: pd.DataFrame, tf: pd.DataFrame, clust_algo:str='DPCLUS', sparse=True) -> Union[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
 
     """
-    Generates a bio-informed mask for connecting 
-    somatic alteration input node to the clustered ppi network
+    Generates biologically informed masks, and
+    associated weights using knowledge from
+    a given protein-protein interaction network
+
+
+    Parameters
+    ----------
+
+    sga:
+        DataFrame (observations x alterations)
+    tf:
+        DataFrame (altered genes x tf genes)
+    
+    clust_algo:
+        Clustering algorithm to use
+        DPCLUS (default), COACH, MCODE
+
+
+    Returns
+    ----------
     
     """
-    genes = set([name.split('_')[1] for name in sga.columns])
+    sga_genes = set([name.split('_')[1] for name in sga.columns]) ## altered genes (input)
+    tf_genes = set(tf.columns) ## transcription factors genes
+    sga_tf_genes = set(tf.index) ## sga-tf genes
 
-    ## Induce a subgraph from the shared genes between the 
-    ## alterations and the ppi network
+    genes = sga_genes.union(tf_genes).union(sga_tf_genes)
 
     # G = get_connected_sga_ppi_network(gene_symbols=genes)
-    G = get_overlap_network(gene_symbols=genes)
+    G = get_overlap_network(gene_symbols=genes, sparse=sparse)
     # nx.write_edgelist(G, "graph.txt", data=False)
 
     ## Apply the clustering algorithm, creating unique protein clusters
-    ## TODO: refactor to avoid writing to disk
-    # c = DPCLUS('graph.txt')
-    # c.cluster()
-    # c.save_clusters('MCODE_clusters.txt')
 
-    logger.info('Using %s clustering algorithm' % clust_algo)
+    # from protclus import COACH, DPCLUS, MCODE
+
+    # c = COACH('graph.txt')
+    # c.cluster()
+    # c.save_clusters('COACH_clusters_large.txt')
+
+
+    is_sparse = 'sparse' if sparse else 'dense'
+    logger.info('Using %s %s clustering algorithm' % (is_sparse, clust_algo))
 
     if clust_algo == 'DPCLUS':
         precomputed_clusters = 'DPCLUS_clusters.txt'
     elif clust_algo == 'COACH':
-        precomputed_clusters = 'COACH_clusters.txt'
+        if sparse:
+            precomputed_clusters = 'COACH_clusters_small.txt'
+        else:
+            precomputed_clusters = 'COACH_clusters_large.txt'
+
     elif clust_algo == 'MCODE':
         precomputed_clusters = 'MCODE_clusters.txt'
     else:
-        logging.warning('Unknown Clustering Algorithm')
+        logging.warning('Unknown Clustering Algorithm: Defaulting to DPCLUS')
         precomputed_clusters = 'DPCLUS_clusters.txt'
 
     with open(precomputed_clusters, "r") as fh:
@@ -472,32 +509,31 @@ def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS') -> Union[
             clustlist = c.strip().split(" ")
             if len(c) == 0:
                 continue
-            clusterindex_to_genes[i] = clustlist
+            clusterindex_to_genes[i] = clustlist ## 0:['MAPK1', 'ESR1', 'GSK3B', 'CDKN1A', 'MYC', 'MAPK14']
 
-    ## Create mapping from sga genes to the protein clusters
-    gene_to_clusterindices = defaultdict(list)
+    gene_to_clusterindices = defaultdict(list) ## 'MAPK1':[0, 75, 129, 373]
+
+    ## Create mapping between genes and the protein clusters
     for c in clusterindex_to_genes.keys():
         for g in clusterindex_to_genes[c]:
-            gene_to_clusterindices[g].append(c)
+            gene_to_clusterindices[g].append(c)        
 
-    index_to_sga = dict(enumerate(sga.columns))
-    index_to_genesymbol = dict(enumerate(genes))
-    genesymbol_to_index = {}
+    index_to_sga = dict(enumerate(sga.columns)) ## 0:'SM_TUSC3'
+    index_to_genesymbol = dict(enumerate(sga_genes)) ## 0:'TUSC3'
+    genesymbol_to_index = {} ## 'TUSC3':0
     for key in index_to_genesymbol.keys():
         if index_to_genesymbol[key] in genesymbol_to_index:
             pass
         else:
-            genesymbol_to_index[index_to_genesymbol[key]] = key  
+            genesymbol_to_index[index_to_genesymbol[key]] = key 
 
     alteration_to_gene = dict(zip(sga.columns, [i.split('_')[1] for i in sga.columns])) ## 'SM_TUSC3':'TUSC3'
 
-
-    ## Create mask and weights
+    ## Create mask and weights for sga-ppi
     adj = np.zeros((len(sga.columns), len(list(clusterindex_to_genes.keys()))))
-    weights = np.zeros_like(adj)
+    sga_weights = np.zeros_like(adj)
 
     unmapped_genes = []
-    # weight_tracker = defaultdict(float) #accumulate edge weights from sga nodes to clusters
 
     for index, alt in index_to_sga.items():
         gs = alteration_to_gene[index_to_sga[index]] # sga gene
@@ -505,31 +541,41 @@ def generate_mask_from_ppi(sga: pd.DataFrame, clust_algo:str='DPCLUS') -> Union[
             for cluster_index in gene_to_clusterindices[gs]:
                 adj[index, cluster_index] = 1
                 for g in clusterindex_to_genes[cluster_index]:    
-                    weights[index, cluster_index] += G.get_edge_data(gs, g, {'weight': 0.0})['weight']
-                    # weight_tracker[cluster_index] += G.get_edge_data(gs, g, {'weight': 0.0})['weight']
+                    sga_weights[index, cluster_index] += G.get_edge_data(gs, g, {'weight': 0.0})['weight']
         else:
             unmapped_genes.append(gs)
 
 
-    logger.info('Generated mask with %i clusters and %i edges' % 
+    logger.info('Generated sga-ppi mask with %i clusters and %i edges' % 
         (len(list(clusterindex_to_genes.keys())), len(sga.columns)-len(unmapped_genes), ))
 
-    biomask = torch.from_numpy(adj).int()
-    weights = torch.from_numpy(weights).float()
-    
 
-    return biomask, weights
+    ## Create mask and weights for ppi-tf
+    m = np.zeros((len(tf.columns), len(list(clusterindex_to_genes.keys()))))
+    tf_weights = np.zeros_like(m)
+
+    unmapped_tf_genes = []
+
+    for index, g in enumerate(tf.columns):
+        if g in gene_to_clusterindices.keys():
+            for cluster_index in gene_to_clusterindices[g]:
+                m[index, cluster_index] = 1
+                for gi in clusterindex_to_genes[cluster_index]:    
+                    tf_weights[index, cluster_index] += G.get_edge_data(g, gi, {'weight': 0.0})['weight']
+        else:
+            unmapped_tf_genes.append(g)
+
+    logger.info('Generated ppi-tf mask with %i clusters and %i edges' % 
+        (len(list(clusterindex_to_genes.keys())), len(tf.columns)-len(unmapped_tf_genes), ))
 
 
-def load_sga(sga_file: str = './data/CITRUS_SGA_SGAseparated.csv') -> pd.DataFrame:
-    """
-    Returns a DataFrame representing the somatic gene alterations as a binary table
-    """
-    sga_df = pd.read_csv(sga_file)
-    sga_df = sga_df.set_index(sga_df.columns[0])
-    sga_df.index.name = None
+    sga_mask = torch.from_numpy(adj).int()
+    tf_mask = torch.from_numpy(m).int()
+    sga_weights = torch.from_numpy(sga_weights).float()
+    tf_weights = torch.from_numpy(tf_weights).float()
 
-    return sga_df
+
+    return sga_mask, sga_weights, tf_mask, tf_weights
 
 
 class Data:
@@ -626,7 +672,13 @@ if __name__ == '__main__':
         fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv'
     )
 
-    generate_mask_from_ppi(data.sga_sga)
+    generate_masks_from_ppi(data.sga_sga, data.gene_tf_sga)
+    # print(a.shape, b.shape)
+    # print(c.shape, d.shape)
+
+    # ppi_edge_list = get_ppi_edge_list()
+    # print(len(ppi_edge_list))
+
 
 
 
