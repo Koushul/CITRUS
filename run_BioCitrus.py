@@ -174,14 +174,14 @@ parser.add_argument(
     "--constrain", 
     help="force weight and biases to be strictly non-negative", 
     type=bool_ext, 
-    default=True
+    default=False
 )
 
 parser.add_argument(
     "--biases", 
     help="enable all nn.Linear biases", 
     type=bool_ext, 
-    default=False
+    default=True
 )
 
 parser.add_argument(
