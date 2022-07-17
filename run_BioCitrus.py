@@ -86,14 +86,9 @@ parser.add_argument(
     "--dropout_rate", 
     help="dropout rate", 
     type=float, 
-    default=0.2
+    default=0.1
 )
-parser.add_argument(
-    "--input_dropout_rate", 
-    help="dropout rate", 
-    type=float, 
-    default=0.2
-)
+
 parser.add_argument(
     "--weight_decay", 
     help="coefficient of l2 regularizer", 
@@ -110,7 +105,7 @@ parser.add_argument(
     "--patience", 
     help="earlystopping patience", 
     type=int, 
-    default=5
+    default=20
 )
 parser.add_argument(
     "--mask01",
@@ -188,7 +183,7 @@ parser.add_argument(
     "--sparse", 
     help="only use SIGNOR data, resulting in sparser connections", 
     type=bool_ext, 
-    default=True
+    default=False
 )
 
 
@@ -260,6 +255,7 @@ try:
 except KeyboardInterrupt: # exit gracefully
     logger.warning('Training Interrupted by User')
 
+torch.save(model.state_dict(), 'model_v2.pth')
 
 # sys.exit(1)
     
@@ -284,7 +280,7 @@ except KeyboardInterrupt: # exit gracefully
 # print("\nPerformance on holdout test set:\n")
 # checkCorrelations(labels_test, preds_test)
 
-np.save(f'experiments/sga_layer_weights_{random.randint(0, 99999)}', model.sga_layer[0].weight.data.cpu().numpy())
+# np.save(f'experiments/sga_layer_weights_{random.randint(0, 99999)}', model.sga_layer[0].weight.data.cpu().numpy())
 
 # dataset_out = {
 #     "labels": labels,         # measured exp 

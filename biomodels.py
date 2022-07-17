@@ -35,13 +35,13 @@ class weightConstraint(object):
           # w = torch.where(w >= 0.1, w, torch.full_like(w, 0.1))
           module.weight.data = w
 
-        if hasattr(module, "bias") and module.bias is not None:
-          b = module.bias.data
-          # b = torch.abs(b)
-          b = torch.ones_like(b)
-          # b = torch.zeros_like(b)
+        # if hasattr(module, "bias") and module.bias is not None:
+        #   b = module.bias.data
+        #   # b = torch.abs(b)
+        #   b = torch.ones_like(b)
+        #   # b = torch.zeros_like(b)
 
-          module.bias.data = b
+        #   module.bias.data = b
 
 
 class BioCitrus(nn.Module):
@@ -68,21 +68,20 @@ class BioCitrus(nn.Module):
       self.to(device)      
       ## Simple Layers
       self.sga_layer = nn.Sequential(
-        MaskedBioLayer(sga_ppi_mask, bias=False, init_weights=sga_ppi_weights),
+        MaskedBioLayer(sga_ppi_mask, bias=True, init_weights=sga_ppi_weights),
         nn.Tanh(),
-        # nn.Dropout(p=self.dropout_rate)
+        nn.Dropout(p=self.dropout_rate)
       )
 
 
       self.tf_layer = nn.Sequential(
-        # nn.Linear(self.nclusters, self.tf_size, bias=True),
-        MaskedBioLayer(ppi_tf_mask, bias=enable_bias, init_weights=ppi_tf_weights),
+        MaskedBioLayer(ppi_tf_mask, bias=True, init_weights=ppi_tf_weights),
         nn.Tanh(),
-        # nn.Dropout(p=self.dropout_rate)
+        nn.Dropout(p=self.dropout_rate)
       )
 
       self.gep_output_layer = nn.Linear(
-          in_features=self.tf_size, out_features=self.gep_size, bias=False
+          in_features=self.tf_size, out_features=self.gep_size, bias=True
       ) ## gene expression output layer
 
       ## TODO: Refactor this to use the BioLayerMaskFunction instead
@@ -108,7 +107,7 @@ class BioCitrus(nn.Module):
 
 
   
-    def forward(self, sga: torch.Tensor, can: torch.Tensor) -> Union[torch.Tensor, torch.Tensor]:
+    def forward(self, sga: torch.Tensor) -> Union[torch.Tensor, torch.Tensor]:
       
       sga = sga.to(device)
 
@@ -116,7 +115,7 @@ class BioCitrus(nn.Module):
       tf = self.tf_layer(ppi)      
       gexp = self.gep_output_layer(tf)
 
-      return gexp, tf
+      return gexp
 
 
     def fit(
@@ -168,7 +167,7 @@ class BioCitrus(nn.Module):
             train_set, iter_train, batch_size, batch_type="train"
         )
 
-        preds, hid_tmr  = self.forward(batch_set["sga"], batch_set["can"])
+        preds  = self.forward(batch_set["sga"])
         labels = batch_set["gep"].to(device)
 
         self.optimizer.zero_grad()
@@ -176,10 +175,10 @@ class BioCitrus(nn.Module):
         loss.backward()
         self.optimizer.step()
 
-        if self.constrain:
-          self.sga_layer.apply(constraints)
-          self.tf_layer.apply(constraints)
-          self.gep_output_layer.apply(constraints)
+        # if self.constrain:
+        self.sga_layer.apply(constraints)
+        self.tf_layer.apply(constraints)
+        self.gep_output_layer.apply(constraints)
 
         if not self.verbose: pbar.update()
 
@@ -238,16 +237,14 @@ class BioCitrus(nn.Module):
                 test_set, iter_test, test_batch_size, batch_type="test"
             )
             
-            batch_preds, batch_hid_tmr = self.forward(batch_set["sga"], batch_set["can"])
+            batch_preds = self.forward(batch_set["sga"])
             batch_labels = batch_set["gep"]
 
             labels.append(batch_labels.cpu().data.numpy())
             preds.append(batch_preds.cpu().data.numpy())
-            hid_tmr.append(batch_hid_tmr.cpu().data.numpy())
                         
         labels = np.concatenate(labels, axis=0)
         preds = np.concatenate(preds, axis=0)
-        hid_tmr = np.concatenate(hid_tmr, axis=0)
 
         self.train()
         
