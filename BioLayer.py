@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# device = 'cpu'
 
 #################################
 # Define custom autograd function for masked connection.

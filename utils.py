@@ -607,16 +607,27 @@ class Data:
 
         return df
 
-    def __init__(self, fcancerType_SGA:str, fgene_tf_SGA:str, fGEP_SGA:str, fSGA_SGA:str):
-        logger.info("Loading data files")
+    def __init__(self, fcancerType_SGA:str, fgene_tf_SGA:str, fGEP_SGA:str, fSGA_SGA:str, cancer_type:str=None):
+        # logger.info("Loading data files")
             
         self.cancerType_sga = self._read_csv(fcancerType_SGA)
         self.gene_tf_sga = self._read_csv(fgene_tf_SGA)
         self.gep_sga = self._read_csv(fGEP_SGA)
         self.sga_sga = self._read_csv(fSGA_SGA).replace(2, 1)
+        self.cancer_type = cancer_type
+        
+        if self.cancer_type:
+            idx = self.cancerType_sga[self.cancerType_sga['type']==self.cancer_type].index   
+            self.gep_sga = self.gep_sga.loc[idx]
+            self.sga_sga = self.sga_sga.loc[idx]
+            self.cancerType_sga = self.cancerType_sga.loc[idx]
+            
+        a = list(self.gep_sga.index)
+        np.random.shuffle(a)
+        self.gep_sga.index = a
 
-        assert all(self.gep_sga.index == self.sga_sga.index)
-        assert all(self.cancerType_sga.index == self.sga_sga.index)
+        # assert all(self.gep_sga.index == self.sga_sga.index)
+        # assert all(self.cancerType_sga.index == self.sga_sga.index)
         
         self.alterations = np.array(self.sga_sga.columns, dtype=str)
         self.tumor_ids = np.array(self.sga_sga.index, dtype=str)
@@ -672,7 +683,7 @@ if __name__ == '__main__':
         fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv'
     )
 
-    generate_masks_from_ppi(data.sga_sga, data.gene_tf_sga)
+    # generate_masks_from_ppi(data.sga_sga, data.gene_tf_sga)
     # print(a.shape, b.shape)
     # print(c.shape, d.shape)
 

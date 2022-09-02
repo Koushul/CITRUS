@@ -21,6 +21,8 @@ from tqdm import tqdm
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+# device = 'cpu'
+
 
 class weightConstraint(object):
     """ Define weight constraint for a model layer """
@@ -46,7 +48,7 @@ class weightConstraint(object):
 
 class BioCitrus(nn.Module):
 
-    def __init__(self, args, sga_ppi_mask, ppi_tf_mask, sga_ppi_weights=None, ppi_tf_weights=None, enable_bias=False):
+    def __init__(self, args, sga_ppi_mask, ppi_tf_mask, sga_ppi_weights=None, ppi_tf_weights=None, enable_bias=True):
       super(BioCitrus, self).__init__()
 
       ## Hyperparameters
@@ -64,24 +66,25 @@ class BioCitrus(nn.Module):
       self.dropout_rate = args.dropout_rate
       self.weight_decay = args.weight_decay
       self.nclusters = sga_ppi_mask.shape[1]
+      self.cancer = args.cancer_type
 
       self.to(device)      
       ## Simple Layers
       self.sga_layer = nn.Sequential(
-        MaskedBioLayer(sga_ppi_mask, bias=True, init_weights=sga_ppi_weights),
+        MaskedBioLayer(sga_ppi_mask, bias=enable_bias, init_weights=sga_ppi_weights),
         nn.Tanh(),
         nn.Dropout(p=self.dropout_rate)
       )
 
 
       self.tf_layer = nn.Sequential(
-        MaskedBioLayer(ppi_tf_mask, bias=True, init_weights=ppi_tf_weights),
+        MaskedBioLayer(ppi_tf_mask, bias=enable_bias, init_weights=ppi_tf_weights),
         nn.Tanh(),
         nn.Dropout(p=self.dropout_rate)
       )
 
       self.gep_output_layer = nn.Linear(
-          in_features=self.tf_size, out_features=self.gep_size, bias=True
+          in_features=self.tf_size, out_features=self.gep_size, bias=enable_bias
       ) ## gene expression output layer
 
       ## TODO: Refactor this to use the BioLayerMaskFunction instead
@@ -107,13 +110,16 @@ class BioCitrus(nn.Module):
 
 
   
-    def forward(self, sga: torch.Tensor) -> Union[torch.Tensor, torch.Tensor]:
+    def forward(self, sga: torch.Tensor, with_tf=False) -> Union[torch.Tensor, torch.Tensor]:
       
       sga = sga.to(device)
 
       ppi = self.sga_layer(sga)
       tf = self.tf_layer(ppi)      
       gexp = self.gep_output_layer(tf)
+      
+      if with_tf:
+        return tf, gexp
 
       return gexp
 
@@ -149,6 +155,9 @@ class BioCitrus(nn.Module):
       """
 
       self.verbose = kwargs.get('verbose', True)
+      self.cancer_type = kwargs.get('cancer_type', None)
+      
+      self.metrics = []
 
 
       if self.patience != 0:
@@ -162,7 +171,6 @@ class BioCitrus(nn.Module):
       if not self.verbose: pbar = tqdm(total = len(r))
 
       for iter_train in r:
-
         batch_set = get_minibatch(
             train_set, iter_train, batch_size, batch_type="train"
         )
@@ -187,16 +195,20 @@ class BioCitrus(nn.Module):
         
         if iter_train == 0 or (test_inc_size and (iter_train % test_inc_size == 0)):
           labels, preds, _ = self.test(test_set, test_batch_size)
+          
           corr_spearman, corr_pearson = evaluate(
               labels, preds, epsilon=self.epsilon)
+          
+          loss_ = loss.cpu().detach().item()
 
           if not self.verbose:
-            pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss.cpu().detach().item():.3f}')
+            pbar.set_description(f'{self.cancer} | CORR: {corr_spearman:.3f} | MSE: {loss_:.3f}')
+            self.metrics.append((loss_, corr_spearman))
 
           else:
             print('\x1b[38;5;196m correlation: %.3f, loss: %.3f | w_: %.3f | w_: %.3f \x1b[0m' % 
                 (corr_spearman, 
-                loss.cpu().detach().item(), 
+                loss, 
                 self.sga_layer[0].weight.data.sum(), 
                 self.tf_layer[0].weight.data.sum())
               )
@@ -206,6 +218,7 @@ class BioCitrus(nn.Module):
               break
             
       if not self.verbose: pbar.close()
+      
 
     def test(self, test_set, test_batch_size, **kwargs):
         """Run forward process over the given whole test set.
