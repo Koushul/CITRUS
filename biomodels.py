@@ -72,20 +72,20 @@ class BioCitrus(nn.Module):
       self.nclusters = sga_ppi_mask.shape[1]
       self.cancer = args.cancer_type
             
-
       self.to(device)      
+      
+      
+      
       ## Simple Layers
       self.sga_layer = nn.Sequential(
         MaskedBioLayer(sga_ppi_mask, bias=enable_bias, init_weights=sga_ppi_weights),
         nn.Tanh(),
-        nn.Dropout(p=self.dropout_rate)
       )
 
 
       self.tf_layer = nn.Sequential(
         MaskedBioLayer(ppi_tf_mask, bias=enable_bias, init_weights=ppi_tf_weights),
         nn.Tanh(),
-        nn.Dropout(p=self.dropout_rate)
       )
 
       self.gep_output_layer = nn.Linear(
@@ -104,11 +104,6 @@ class BioCitrus(nn.Module):
       )
       # register a hook with the mask value
       self.gep_output_layer.weight.register_hook(lambda grad: grad.mul_(mask_value))
-
-
-      self.extra_layer = nn.Linear(self.gep_size, self.gep_size)
-
-
 
       self.optimizer = optim.Adam(
           self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
@@ -131,7 +126,6 @@ class BioCitrus(nn.Module):
       ppi = self.sga_layer(sga)
       tf = self.tf_layer(ppi)      
       gexp = self.gep_output_layer(tf)
-      gexp = self.extra_layer(nn.Tanh()(gexp))
       
       if with_tf:
         return tf, gexp
@@ -198,10 +192,10 @@ class BioCitrus(nn.Module):
         loss.backward()
         self.optimizer.step()
 
-        # if self.constrain:
-        self.sga_layer.apply(constraints)
-        self.tf_layer.apply(constraints)
-        self.gep_output_layer.apply(constraints)
+        if self.constrain:
+          self.sga_layer.apply(constraints)
+          self.tf_layer.apply(constraints)
+          self.gep_output_layer.apply(constraints)
 
         if not self.verbose: pbar.update()
 

@@ -629,22 +629,21 @@ class Data:
 
         # assert all(self.gep_sga.index == self.sga_sga.index)
         # assert all(self.cancerType_sga.index == self.sga_sga.index)
-        self.gep_sga = (self.gep_sga - self.gep_sga.mean(0)) / self.gep_sga.std(0)
         
         self.alterations = np.array(self.sga_sga.columns, dtype=str)
         self.tumor_ids = np.array(self.sga_sga.index, dtype=str)
         self.sga_genes = np.unique(np.array([name.split('_')[1] for name in self.alterations], dtype=str))
-        self.sga_genes.sort()
+        # self.sga_genes.sort()
         self.cancer_types = np.array(self.cancerType_sga['type'].values, dtype=str) #non-unique list
         
         ## reformat df into dual input per gene
-        _dual_alterations = np.array([('SM_'+i, 'SCNA_'+i) for i in self.sga_genes]).reshape(-1)
-        df = pd.DataFrame(columns=_dual_alterations)
-        df = self.sga_sga.reindex(columns=set(_dual_alterations).union(set(self.sga_sga.columns))).fillna(0)
-        df = df.astype(int)
-        df = df[_dual_alterations]
+        # _dual_alterations = np.array([('SM_'+i, 'SCNA_'+i) for i in self.sga_genes]).reshape(-1)
+        # df = pd.DataFrame(columns=_dual_alterations)
+        # df = self.sga_sga.reindex(columns=set(_dual_alterations).union(set(self.sga_sga.columns))).fillna(0)
+        # df = df.astype(int)
+        # df = df[_dual_alterations]
         
-        self.
+        # self.sga_sga = df
 
 
 
