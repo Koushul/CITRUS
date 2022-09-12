@@ -12,6 +12,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from scipy import stats
+
 from BioLayer import MaskedBioLayer
 
 from utils import logger, get_minibatch, evaluate, EarlyStopping, shuffle_data
@@ -50,6 +52,8 @@ class BioCitrus(nn.Module):
 
     def __init__(self, args, sga_ppi_mask, ppi_tf_mask, sga_ppi_weights=None, ppi_tf_weights=None, enable_bias=True):
       super(BioCitrus, self).__init__()
+      
+     
 
       ## Hyperparameters
       self.epsilon = 1e-4
@@ -67,6 +71,7 @@ class BioCitrus(nn.Module):
       self.weight_decay = args.weight_decay
       self.nclusters = sga_ppi_mask.shape[1]
       self.cancer = args.cancer_type
+            
 
       self.to(device)      
       ## Simple Layers
@@ -89,12 +94,21 @@ class BioCitrus(nn.Module):
 
       ## TODO: Refactor this to use the BioLayerMaskFunction instead
       # define layer weight clapped by mask
+      
+      
       mask_value = torch.FloatTensor(self.tf_gene.T).to(device)
+      
+            
       self.gep_output_layer.weight.data = self.gep_output_layer.weight.data * torch.FloatTensor(
           self.tf_gene.T
       )
       # register a hook with the mask value
       self.gep_output_layer.weight.register_hook(lambda grad: grad.mul_(mask_value))
+
+
+      self.extra_layer = nn.Linear(self.gep_size, self.gep_size)
+
+
 
       self.optimizer = optim.Adam(
           self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
@@ -117,6 +131,7 @@ class BioCitrus(nn.Module):
       ppi = self.sga_layer(sga)
       tf = self.tf_layer(ppi)      
       gexp = self.gep_output_layer(tf)
+      gexp = self.extra_layer(nn.Tanh()(gexp))
       
       if with_tf:
         return tf, gexp
@@ -177,7 +192,7 @@ class BioCitrus(nn.Module):
 
         preds  = self.forward(batch_set["sga"])
         labels = batch_set["gep"].to(device)
-
+        
         self.optimizer.zero_grad()
         loss = self.criterion(preds, labels)
         loss.backward()
@@ -195,14 +210,14 @@ class BioCitrus(nn.Module):
         
         if iter_train == 0 or (test_inc_size and (iter_train % test_inc_size == 0)):
           labels, preds, _ = self.test(test_set, test_batch_size)
-          
+                    
           corr_spearman, corr_pearson = evaluate(
               labels, preds, epsilon=self.epsilon)
           
           loss_ = loss.cpu().detach().item()
-
+          
           if not self.verbose:
-            pbar.set_description(f'{self.cancer} | CORR: {corr_spearman:.3f} | MSE: {loss_:.3f}')
+            pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss_:.3f}')
             self.metrics.append((loss_, corr_spearman))
 
           else:

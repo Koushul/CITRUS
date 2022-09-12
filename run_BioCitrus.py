@@ -57,7 +57,7 @@ parser.add_argument(
     "--max_iter", 
     help="maximum number of training iterations", 
     type=int, 
-    default=500
+    default=100
 )
 parser.add_argument(
     "--max_fscore",
@@ -81,7 +81,7 @@ parser.add_argument(
     "--test_inc_size",
     help="increment interval size between log outputs",
     type=int,
-    default=256
+    default=64
 )
 parser.add_argument(
     "--dropout_rate", 
@@ -207,80 +207,81 @@ logger.info('Training BioCITRUS on %s' % device_name)
 cancer_type = args.cancer
 
 
-for cancer_type in ['BLCA', 'BRCA', 'CESC', 'COAD', 'ESCA', 'GBM', 'HNSC', 'KIRC',
-       'KIRP', 'LIHC', 'LUAD', 'LUSC', 'PCPG', 'PRAD', 'STAD', 'THCA',
-       'UCEC']:
+args.cancer_type = cancer_type
+
+collected_metrics = []
+
+for i in range(1):
+    # logger.info(f'Cancer Type: {cancer_type}')
     
-    args.cancer_type = cancer_type
+    data = Data(
+        fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+        fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+        fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+        fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+        # cancer_type='BRCA'
+    )
     
-    collected_metrics = []
     
-    for i in range(10):
-        logger.info(f'Cancer Type: {cancer_type}')
-        data = Data(
-            fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
-            fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
-            fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
-            fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
-            cancer_type=cancer_type
+    train_set, test_set = data.get_train_test()
+    args.gep_size = train_set['gep'].shape[1]
+    args.tf_gene = data.gene_tf_sga.values.T
+    args.can_size = len(np.unique(data.cancer_types))
+    args.sga_size = 11998
+    
+
+    sga_mask, sga_weights, tf_mask, tf_weights = generate_masks_from_ppi(sga = data.sga_sga, tf = data.gene_tf_sga, clust_algo=args.algo, sparse=args.sparse)
+
+    # np.save(f'experiments/init_weights', weights)
+
+    sga_mask = sga_mask.to(device)
+    sga_weights = sga_weights.t().to(device)
+    tf_mask = tf_mask.t().to(device)
+    tf_weights = tf_weights.to(device)
+
+    if not args.ppi_weights:
+        ppi_weights = None
+        tf_weights = None
+
+    # sga_mask = torch.ones_like(sga_mask)
+    # tf_mask = torch.ones_like(tf_mask)
+
+    # biomask = torch.zeros_like(biomask)
+    # idx = torch.randperm(biomask.nelement())
+    # biomask = biomask.view(-1)[idx].view(biomask.size())
+
+
+    model = BioCitrus(
+        args = args, 
+        sga_ppi_mask = sga_mask, 
+        ppi_tf_mask = tf_mask, 
+        sga_ppi_weights = None, 
+        ppi_tf_weights = None,
+        enable_bias = args.biases
+    ).to(device)
+
+    # sys.exit(1)
+
+    try:
+        model.fit(
+            train_set,
+            test_set,
+            batch_size=args.batch_size,
+            test_batch_size=args.test_batch_size,
+            max_iter=args.max_iter,
+            max_fscore=args.max_fscore,
+            test_inc_size=args.test_inc_size, 
+            verbose = args.verbose,
+            # cancer_type = 'BRCA'
         )
-
-        train_set, test_set = data.get_train_test()
-        args.gep_size = train_set['gep'].shape[1]
-        args.tf_gene = data.gene_tf_sga.values.T
-        args.can_size = len(np.unique(data.cancer_types))
-
-
-        sga_mask, sga_weights, tf_mask, tf_weights = generate_masks_from_ppi(sga = data.sga_sga, tf = data.gene_tf_sga, clust_algo=args.algo, sparse=args.sparse)
-
-        # np.save(f'experiments/init_weights', weights)
-
-        sga_mask = sga_mask.to(device)
-        sga_weights = sga_weights.t().to(device)
-        tf_mask = tf_mask.t().to(device)
-        tf_weights = tf_weights.to(device)
-
-        if not args.ppi_weights:
-            ppi_weights = None
-            tf_weights = None
-
-        # sga_mask = torch.ones_like(sga_mask)
-        # tf_mask = torch.ones_like(tf_mask)
-
-        # biomask = torch.zeros_like(biomask)
-        # idx = torch.randperm(biomask.nelement())
-        # biomask = biomask.view(-1)[idx].view(biomask.size())
-
-
-        model = BioCitrus(
-            args = args, 
-            sga_ppi_mask = sga_mask, 
-            ppi_tf_mask = tf_mask, 
-            sga_ppi_weights = None, 
-            ppi_tf_weights = None,
-            enable_bias = args.biases
-        ).to(device)
-
-        # sys.exit(1)
-
-        try:
-            model.fit(
-                train_set,
-                test_set,
-                batch_size=args.batch_size,
-                test_batch_size=args.test_batch_size,
-                max_iter=args.max_iter,
-                max_fscore=args.max_fscore,
-                test_inc_size=args.test_inc_size, 
-                verbose = args.verbose,
-                cancer_type = cancer_type
-            )
-        except KeyboardInterrupt: # exit gracefully
-            logger.warning('Training Interrupted by User')
-            
-        collected_metrics.append(model.metrics)
+        
+    except KeyboardInterrupt: # exit gracefully
+        logger.warning('Training Interrupted by User')
+        
+    # collected_metrics.append(model.metrics)
     
-    np.save(f'./metrics/{cancer_type}_metrics.npy', collected_metrics)
+    # torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/embedded_model.pth')
+    
 
 # torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/{cancer_type}_{i}.pth')
 
