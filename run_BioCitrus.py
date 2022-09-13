@@ -51,7 +51,7 @@ parser.add_argument(
     "--learning_rate", 
     help="learning rate for Adam", 
     type=float, 
-    default=1e-2
+    default=1e-3
 )
 parser.add_argument(
     "--max_iter", 
@@ -106,7 +106,7 @@ parser.add_argument(
     "--patience", 
     help="earlystopping patience", 
     type=int, 
-    default=50
+    default=10
 )
 parser.add_argument(
     "--mask01",

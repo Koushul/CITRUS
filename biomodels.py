@@ -83,10 +83,12 @@ class BioCitrus(nn.Module):
       )
 
 
-      self.tf_layer = nn.Sequential(
-        MaskedBioLayer(ppi_tf_mask, bias=enable_bias, init_weights=ppi_tf_weights),
-        nn.Tanh(),
-      )
+      # self.tf_layer = nn.Sequential(
+      #   MaskedBioLayer(ppi_tf_mask, bias=enable_bias, init_weights=ppi_tf_weights),
+      #   nn.Tanh(),
+      # )
+      
+      self.tf_size = 1387
 
       self.gep_output_layer = nn.Linear(
           in_features=self.tf_size, out_features=self.gep_size, bias=enable_bias
@@ -96,15 +98,26 @@ class BioCitrus(nn.Module):
       # define layer weight clapped by mask
       
       
-      mask_value = torch.FloatTensor(self.tf_gene.T).to(device)
+      # mask_value = torch.FloatTensor(self.tf_gene.T).to(device)
       
             
-      self.gep_output_layer.weight.data = self.gep_output_layer.weight.data * torch.FloatTensor(
-          self.tf_gene.T
-      )
+      # self.gep_output_layer.weight.data = self.gep_output_layer.weight.data * torch.FloatTensor(
+      #     self.tf_gene.T
+      # )
       # register a hook with the mask value
-      self.gep_output_layer.weight.register_hook(lambda grad: grad.mul_(mask_value))
-
+      # self.gep_output_layer.weight.register_hook(lambda grad: grad.mul_(mask_value))
+      
+      
+      self.layer_h0 = nn.Linear(3862, 9229)
+      self.layer_h1 = nn.Linear(9229, 1387)
+      # self.layer_h2 = nn.Linear(1387, 1066)
+      # self.layer_h3 = nn.Linear(1066, 447)
+      # self.layer_h4 = nn.Linear(447, 147)
+      # self.layer_h5 = nn.Linear(147, 26)
+      
+      
+      
+    
       self.optimizer = optim.Adam(
           self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
       )
@@ -124,11 +137,17 @@ class BioCitrus(nn.Module):
       sga = sga.to(device)
 
       ppi = self.sga_layer(sga)
-      tf = self.tf_layer(ppi)      
-      gexp = self.gep_output_layer(tf)
+      # tf = self.tf_layer(ppi)      
+      # gexp = self.gep_output_layer(tf)
       
-      if with_tf:
-        return tf, gexp
+      x = nn.Tanh()(self.layer_h0(ppi))
+      x = nn.Tanh()(self.layer_h1(x))
+      # x = nn.Tanh()(self.layer_h2(x))
+      
+      gexp = self.gep_output_layer(x)
+      
+      
+      
 
       return gexp
 
@@ -194,7 +213,7 @@ class BioCitrus(nn.Module):
 
         if self.constrain:
           self.sga_layer.apply(constraints)
-          self.tf_layer.apply(constraints)
+          # self.tf_layer.apply(constraints)
           self.gep_output_layer.apply(constraints)
 
         if not self.verbose: pbar.update()
