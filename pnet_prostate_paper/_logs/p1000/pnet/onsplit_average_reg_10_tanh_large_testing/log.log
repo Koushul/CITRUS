@@ -1,0 +1,105 @@
+09/13 11:53 - {logs.py:22} - setting logs
+09/13 11:53 - {run_me.py:105} - random seed 234
+09/13 11:53 - {one_split.py:132} - loading data....
+09/13 11:53 - {data_reader.py:97} - loading mut_important
+09/13 11:53 - {data_reader.py:29} - loading data from /ihome/hosmanbeyoglu/kor11/tools/CITRUS/pnet_prostate_paper/_database/prostate/processed/P1000_final_analysis_set_cross_important_only.csv,
+09/13 11:53 - {data_reader.py:36} - (1011, 14378)
+09/13 11:53 - {data_reader.py:202} - loading response from response_paper.csv
+09/13 11:53 - {data_reader.py:64} - some genes dont exist in the original data set
+09/13 11:53 - {data_reader.py:67} - loaded data 1011 samples, 8319 variables, 1011 responses 
+09/13 11:53 - {data_reader.py:68} - 8319
+09/13 11:53 - {data_reader.py:109} - mut_binary = True
+09/13 11:53 - {data_reader.py:97} - loading cnv_del
+09/13 11:53 - {data_reader.py:29} - loading data from /ihome/hosmanbeyoglu/kor11/tools/CITRUS/pnet_prostate_paper/_database/prostate/processed/P1000_data_CNA_paper.csv,
+09/13 11:53 - {data_reader.py:36} - (1013, 13802)
+09/13 11:53 - {data_reader.py:39} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:64} - some genes dont exist in the original data set
+09/13 11:53 - {data_reader.py:67} - loaded data 1013 samples, 6344 variables, 1013 responses 
+09/13 11:53 - {data_reader.py:68} - 6344
+09/13 11:53 - {data_reader.py:97} - loading cnv_amp
+09/13 11:53 - {data_reader.py:29} - loading data from /ihome/hosmanbeyoglu/kor11/tools/CITRUS/pnet_prostate_paper/_database/prostate/processed/P1000_data_CNA_paper.csv,
+09/13 11:53 - {data_reader.py:31} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:36} - (1013, 13802)
+09/13 11:53 - {data_reader.py:39} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:64} - some genes dont exist in the original data set
+09/13 11:53 - {data_reader.py:67} - loaded data 1013 samples, 6344 variables, 1013 responses 
+09/13 11:53 - {data_reader.py:68} - 6344
+09/13 11:53 - {data_reader.py:255} - After combining, loaded data 1011 samples, 27687 variables, 1011 responses 
+09/13 11:53 - {one_split.py:137} - predicting
+09/13 11:53 - {one_split.py:147} - x_train (807, 27687) y_train (807, 1) 
+09/13 11:53 - {one_split.py:148} - x_test (204, 27687) y_test (204, 1) 
+09/13 11:53 - {one_split.py:151} - preprocessing....
+09/13 11:53 - {one_split.py:303} - preprocessing....
+09/13 11:53 - {pre.py:10} - Pre-processing: None
+09/13 11:53 - {nn.py:112} - class_weight auto
+09/13 11:53 - {one_split.py:158} - fitting
+09/13 11:53 - {one_split.py:159} - {'type': 'nn', 'id': 'P-net', 'params': {'build_fn': <function build_pnet2 at 0x7f801b827620>, 'model_params': {'use_bias': True, 'w_reg': [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001], 'w_reg_outcomes': [0.01, 0.01, 0.01, 0.01, 0.01, 0.01], 'dropout': [0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], 'loss_weights': [2, 7, 20, 54, 148, 400], 'optimizer': 'Adam', 'activation': 'tanh', 'data_params': {'id': 'ALL', 'type': 'prostate_paper', 'params': {'data_type': ['mut_important', 'cnv_del', 'cnv_amp'], 'drop_AR': False, 'cnv_levels': 3, 'mut_binary': True, 'balanced_data': False, 'combine_type': 'union', 'use_coding_genes_only': True, 'selected_genes': 'tcga_prostate_expressed_genes_and_cancer_genes.csv', 'training_split': 0}}, 'add_unk_genes': False, 'shuffle_genes': False, 'kernel_initializer': 'lecun_uniform', 'n_hidden_layers': 5, 'attention': False, 'dropout_testing': False}, 'fitting_params': {'samples_per_epoch': 10, 'select_best_model': False, 'monitor': 'val_o6_f1', 'verbose': 2, 'epoch': 300, 'shuffle': True, 'batch_size': 50, 'save_name': 'pnet', 'debug': False, 'save_gradient': False, 'class_weight': 'auto', 'n_outputs': 6, 'prediction_output': 'average', 'early_stop': False, 'reduce_lr': False, 'reduce_lr_after_nepochs': {'drop': 0.25, 'epochs_drop': 50}, 'lr': 0.001, 'max_f1': True}, 'feature_importance': 'deepexplain_deeplift'}}
+09/13 11:53 - {data_reader.py:97} - loading mut_important
+09/13 11:53 - {data_reader.py:29} - loading data from /ihome/hosmanbeyoglu/kor11/tools/CITRUS/pnet_prostate_paper/_database/prostate/processed/P1000_final_analysis_set_cross_important_only.csv,
+09/13 11:53 - {data_reader.py:31} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:36} - (1011, 14378)
+09/13 11:53 - {data_reader.py:39} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:64} - some genes dont exist in the original data set
+09/13 11:53 - {data_reader.py:67} - loaded data 1011 samples, 8319 variables, 1011 responses 
+09/13 11:53 - {data_reader.py:68} - 8319
+09/13 11:53 - {data_reader.py:109} - mut_binary = True
+09/13 11:53 - {data_reader.py:97} - loading cnv_del
+09/13 11:53 - {data_reader.py:29} - loading data from /ihome/hosmanbeyoglu/kor11/tools/CITRUS/pnet_prostate_paper/_database/prostate/processed/P1000_data_CNA_paper.csv,
+09/13 11:53 - {data_reader.py:31} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:36} - (1013, 13802)
+09/13 11:53 - {data_reader.py:39} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:64} - some genes dont exist in the original data set
+09/13 11:53 - {data_reader.py:67} - loaded data 1013 samples, 6344 variables, 1013 responses 
+09/13 11:53 - {data_reader.py:68} - 6344
+09/13 11:53 - {data_reader.py:97} - loading cnv_amp
+09/13 11:53 - {data_reader.py:29} - loading data from /ihome/hosmanbeyoglu/kor11/tools/CITRUS/pnet_prostate_paper/_database/prostate/processed/P1000_data_CNA_paper.csv,
+09/13 11:53 - {data_reader.py:31} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:36} - (1013, 13802)
+09/13 11:53 - {data_reader.py:39} - loading from memory cached_data
+09/13 11:53 - {data_reader.py:64} - some genes dont exist in the original data set
+09/13 11:53 - {data_reader.py:67} - loaded data 1013 samples, 6344 variables, 1013 responses 
+09/13 11:53 - {data_reader.py:68} - 6344
+09/13 11:53 - {data_reader.py:255} - After combining, loaded data 1011 samples, 27687 variables, 1011 responses 
+09/13 11:53 - {prostate_models.py:131} - x shape (1011, 27687) , y shape (1011, 1) info (1011,) genes (27687,)
+09/13 11:53 - {prostate_models.py:133} - x shape (1011, 27687) , y shape (1011, 1) info (1011,) genes (27687,)
+09/13 11:53 - {deprecation.py:323} - From /ihome/crc/install/tensorflow/1.13.1/python3.7/lib/python3.7/site-packages/tensorflow/python/framework/op_def_library.py:263: colocate_with (from tensorflow.python.framework.ops) is deprecated and will be removed in a future version.
+Instructions for updating:
+Colocations handled automatically by placer.
+09/13 11:53 - {builders_utils.py:65} - layer 0 , # of edges  15651.0
+09/13 11:53 - {builders_utils.py:65} - layer 1 , # of edges  1396.0
+09/13 11:53 - {builders_utils.py:65} - layer 2 , # of edges  1070.0
+09/13 11:53 - {builders_utils.py:65} - layer 3 , # of edges  447.0
+09/13 11:53 - {builders_utils.py:65} - layer 4 , # of edges  148.0
+09/13 11:53 - {builders_utils.py:65} - layer 5 , # of edges  26.0
+09/13 11:53 - {builders_utils.py:209} - n_genes, n_pathways 9229 1387 
+09/13 11:53 - {builders_utils.py:209} - n_genes, n_pathways 1387 1066 
+09/13 11:53 - {builders_utils.py:209} - n_genes, n_pathways 1066 447 
+09/13 11:53 - {builders_utils.py:209} - n_genes, n_pathways 447 147 
+09/13 11:53 - {builders_utils.py:209} - n_genes, n_pathways 147 26 
+09/13 11:53 - {prostate_models.py:193} - done compiling
+09/13 11:53 - {model_utils.py:37} -   - 0 inputs (None, 27687)
+09/13 11:53 - {model_utils.py:37} -   - 1 h0 (None, 9229)
+09/13 11:53 - {model_utils.py:37} -   - 2 dropout_0 (None, 9229)
+09/13 11:53 - {model_utils.py:37} -   - 3 h1 (None, 1387)
+09/13 11:53 - {model_utils.py:37} -   - 4 dropout_1 (None, 1387)
+09/13 11:53 - {model_utils.py:37} -   - 5 h2 (None, 1066)
+09/13 11:53 - {model_utils.py:37} -   - 6 dropout_2 (None, 1066)
+09/13 11:53 - {model_utils.py:37} -   - 7 h3 (None, 447)
+09/13 11:53 - {model_utils.py:37} -   - 8 dropout_3 (None, 447)
+09/13 11:53 - {model_utils.py:37} -   - 9 h4 (None, 147)
+09/13 11:53 - {model_utils.py:37} -   - 10 dropout_4 (None, 147)
+09/13 11:53 - {model_utils.py:37} -   - 11 h5 (None, 26)
+09/13 11:53 - {model_utils.py:37} -   - 12 o_linear1 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 13 o_linear2 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 14 o_linear3 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 15 o_linear4 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 16 o_linear5 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 17 o_linear6 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 18 o1 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 19 o2 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 20 o3 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 21 o4 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 22 o5 (None, 1)
+09/13 11:53 - {model_utils.py:37} -   - 23 o6 (None, 1)
+09/13 11:53 - {prostate_models.py:197} - None
+09/13 11:53 - {prostate_models.py:198} - # of trainable params of the model is 255566645

@@ -1,7 +1,9 @@
 /data
+/pnet_prostate_paper/_database
 /output
 /to_KouShul
 /gincco
 .vscode
 __pycache__
 *.npy
+# /pnet_prostate_paper
