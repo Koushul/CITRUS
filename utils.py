@@ -269,7 +269,8 @@ def evaluate(labels, preds, epsilon=1e-4):
     flat_preds = np.reshape(preds, -1)
 
     corr_spearman = stats.spearmanr(flat_preds, flat_labels)[0]
-    corr_pearson = stats.pearsonr(flat_preds, flat_labels)[0]
+    # corr_pearson = stats.pearsonr(flat_preds, flat_labels)[0]
+    corr_pearson = None
     return (corr_spearman, corr_pearson)
 
 
@@ -438,6 +439,7 @@ def get_connected_sga_ppi_network(gene_symbols: list, weighted: bool=True) -> nx
         largest_cc = G.subgraph(largest_cc).copy()
 
     return largest_cc
+
 
 
 
@@ -614,18 +616,24 @@ class Data:
         self.gene_tf_sga = self._read_csv(fgene_tf_SGA)
         self.gep_sga = self._read_csv(fGEP_SGA)
         self.sga_sga = self._read_csv(fSGA_SGA).replace(2, 1)
-        
         self.cancer_type = cancer_type
         
-        if self.cancer_type:
-            idx = self.cancerType_sga[self.cancerType_sga['type']==self.cancer_type].index   
-            self.gep_sga = self.gep_sga.loc[idx]
-            self.sga_sga = self.sga_sga.loc[idx]
-            self.cancerType_sga = self.cancerType_sga.loc[idx]
+        # self.alterations = np.array(self.sga_sga.columns, dtype=str)
+        # self.sga_genes = np.unique(np.array([name.split('_')[1] for name in self.alterations], dtype=str))
+        # maps = np.load('./pnet_prostate_paper/train/maps.npy', allow_pickle=True)
+        # cg = set(data.sga_genes).intersection(set(maps[0].index))
+        # G = np.array([('SM_'+i, 'SCNA_'+i) for i in self.sga_genes if i in cg]).reshape(-1)
+        
+        # self.sga_sga[set(self.sga_sga).intersection(set(G))].shape
+        
+        
+        
             
         # a = list(self.gep_sga.index)
         # np.random.shuffle(a)
         # self.gep_sga.index = a
+        
+        
 
         # assert all(self.gep_sga.index == self.sga_sga.index)
         # assert all(self.cancerType_sga.index == self.sga_sga.index)
@@ -643,9 +651,17 @@ class Data:
         # df = df.astype(int)
         # df = df[_dual_alterations]
         
-        # self.sga_sga = df
-
-
+        self.sga_sga = pd.read_parquet('sga_sga.parquet')
+        self.gep_sga = pd.DataFrame(
+            scale(self.gep_sga, axis=1), 
+            columns = self.gep_sga.columns, 
+            index = self.gep_sga.index)
+        
+        if self.cancer_type:
+            idx = self.cancerType_sga[self.cancerType_sga['type']==self.cancer_type].index   
+            self.gep_sga = self.gep_sga.loc[idx]
+            self.sga_sga = self.sga_sga.loc[idx]
+            self.cancerType_sga = self.cancerType_sga.loc[idx]
 
     def get_train_test(self) -> Union[dict, dict]:
         _encoder = {value:key for key, value in dict(enumerate(np.sort(np.unique(self.cancer_types)))).items()}
@@ -676,6 +692,19 @@ class Data:
         return train_set, test_set
 
 
+
+def generate_masks(data: Data):
+    return torch.from_numpy(np.load('alt2genes_mask.npy'))
+    alt2genes_mask = pd.DataFrame(index=data.sga_sga.columns, columns=data.sga_genes).fillna(0)
+    for i, j in zip(range(0, alt2genes_mask.shape[1], 2), range(alt2genes_mask.shape[0])):
+        alt2genes_mask.iloc[i, j] = 1
+        alt2genes_mask.iloc[i+1, j] = 1
+        
+    np.save('alt2genes_mask.npy', alt2genes_mask)
+        
+    return torch.from_numpy(alt2genes_mask.values)
+    
+    
 
 if __name__ == '__main__':
 

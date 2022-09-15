@@ -66,7 +66,7 @@ class MaskedBioLayer(nn.Module):
     """MaskedBioLayer operate as a linear layer, but
         with masked connections"""
 
-    def __init__(self, mask: torch.Tensor, bias:bool=True, init_weights:torch.Tensor=None):
+    def __init__(self, mask: torch.Tensor, bias:bool=True, init_weights:torch.Tensor=None, disable:bool=False):
         """
         Arguments
         ------------------
@@ -90,11 +90,18 @@ class MaskedBioLayer(nn.Module):
         self.input_features = mask.shape[0]
         self.output_features = mask.shape[1]
         self.init_weights = init_weights
+        self.disable = disable
+        
+
 
         if isinstance(mask, torch.Tensor):
             self.mask = mask.type(torch.float).t()
         else:
             self.mask = torch.tensor(mask, dtype=torch.float).t()
+            
+            
+        if self.disable:
+            self.mask = torch.ones_like(self.mask)
 
         self.mask = nn.Parameter(self.mask.to(device), requires_grad=False)
 

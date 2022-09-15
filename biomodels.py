@@ -50,72 +50,99 @@ class weightConstraint(object):
 
 class BioCitrus(nn.Module):
 
-    def __init__(self, args, sga_ppi_mask, ppi_tf_mask, sga_ppi_weights=None, ppi_tf_weights=None, enable_bias=True):
+    def __init__(self, args, sga_ppi_mask, mask_1=None, mask_2=None, mask_3=None, mask_4=None, mask_5=None, enable_bias=True):
       super(BioCitrus, self).__init__()
       
-     
-
       ## Hyperparameters
       self.epsilon = 1e-4
-      self.dropout_input = True
 
       self.can_size = args.can_size
       self.tf_size = args.tf_gene.shape[0]
       self.gep_size = args.gep_size
       self.tf_gene = args.tf_gene
       self.patience = args.patience
-      self.cancer_type = args.cancer_type
       self.constrain = args.constrain
       self.learning_rate = args.learning_rate
-      self.dropout_rate = args.dropout_rate
       self.weight_decay = args.weight_decay
-      self.nclusters = sga_ppi_mask.shape[1]
-      self.cancer = args.cancer_type
+      # self.activation = nn.Tanh()
+      self.activation = nn.Sigmoid()
+      
             
       self.to(device)      
       
       
       
-      ## Simple Layers
-      self.sga_layer = nn.Sequential(
-        MaskedBioLayer(sga_ppi_mask, bias=enable_bias, init_weights=sga_ppi_weights),
-        nn.Tanh(),
-      )
-
-
-      # self.tf_layer = nn.Sequential(
-      #   MaskedBioLayer(ppi_tf_mask, bias=enable_bias, init_weights=ppi_tf_weights),
-      #   nn.Tanh(),
-      # )
       
-      self.tf_size = 1387
+      ## Simple Layers
+      self.alterations = nn.Sequential(
+        MaskedBioLayer(sga_ppi_mask, bias=enable_bias),
+        self.activation,
+        nn.Dropout(0.5)
+      )
+      
+      _shape = 0
+      
+      if mask_1 is not None:
+        self.genes = nn.Sequential(
+          MaskedBioLayer(mask_1, bias=enable_bias),
+          self.activation,
+        )
+        
+        _shape = mask_1.shape[1]
+        
+        
+      if mask_2 is not None:
+        self.pathways = nn.Sequential(
+          MaskedBioLayer(mask_2, bias=enable_bias),
+          self.activation,
+        )
+        
+        _shape = mask_2.shape[1]
+      
+      if mask_3 is not None:
+        self.processes = nn.Sequential(
+          MaskedBioLayer(mask_3, bias=enable_bias),
+          self.activation,
+        )
+        _shape = mask_3.shape[1]
+      
+      
+      if mask_4 is not None:
+        self.entities = nn.Sequential(
+          MaskedBioLayer(mask_4, bias=enable_bias),
+          self.activation,
+        )
+        _shape = mask_4.shape[1]
+        
+      if mask_5 is not None:
+        self.concepts = nn.Sequential(
+          MaskedBioLayer(mask_5, bias=enable_bias),
+          self.activation,
+        )
+        _shape = mask_5.shape[1]
+        
+
+      self.tf_layer = nn.Sequential(
+        nn.Linear(_shape, self.tf_size, bias=enable_bias),
+        self.activation,
+      )
+      
+      
 
       self.gep_output_layer = nn.Linear(
-          in_features=self.tf_size, out_features=self.gep_size, bias=enable_bias
+          in_features=self.tf_size, out_features=self.gep_size
       ) ## gene expression output layer
 
-      ## TODO: Refactor this to use the BioLayerMaskFunction instead
-      # define layer weight clapped by mask
+      # # define layer weight clapped by mask
+      
+      self.tf_gene = np.where(self.tf_gene>0, 1, 0)
+      # self.tf_gene = np.ones_like(self.tf_gene)
+      # self.tf_gene = np.zeros_like(self.tf_gene)
       
       
-      # mask_value = torch.FloatTensor(self.tf_gene.T).to(device)
-      
-            
-      # self.gep_output_layer.weight.data = self.gep_output_layer.weight.data * torch.FloatTensor(
-      #     self.tf_gene.T
-      # )
-      # register a hook with the mask value
-      # self.gep_output_layer.weight.register_hook(lambda grad: grad.mul_(mask_value))
-      
-      
-      self.layer_h0 = nn.Linear(3862, 9229)
-      self.layer_h1 = nn.Linear(9229, 1387)
-      # self.layer_h2 = nn.Linear(1387, 1066)
-      # self.layer_h3 = nn.Linear(1066, 447)
-      # self.layer_h4 = nn.Linear(447, 147)
-      # self.layer_h5 = nn.Linear(147, 26)
-      
-      
+      mask_value = torch.FloatTensor(self.tf_gene.T).to(device)
+      self.gep_output_layer.weight.data = self.gep_output_layer.weight.data * torch.FloatTensor(self.tf_gene.T)      
+      self.gep_output_layer.weight.register_hook(lambda grad: grad.mul_(mask_value))
       
     
       self.optimizer = optim.Adam(
@@ -125,30 +152,29 @@ class BioCitrus(nn.Module):
       self.criterion = nn.MSELoss()
 
       for name, param in self.named_parameters():
-        logger.debug(f'{name} | {param.requires_grad} | {tuple(param.shape)}')
+        if 'weight' in name:
+          name = name.replace('.0', '')
+          logger.debug(f'{name} | {param.requires_grad} | {tuple(param.T.shape)}')
       print('')
-      logger.debug(f'Constraints Enabled: {self.constrain}')
-      logger.debug(f'Biases Enabled: {enable_bias}')
+      # logger.debug(f'Constraints Enabled: {self.constrain}')
+      # logger.debug(f'Biases Enabled: {enable_bias}')
 
 
   
     def forward(self, sga: torch.Tensor, with_tf=False) -> Union[torch.Tensor, torch.Tensor]:
-      
       sga = sga.to(device)
-
-      ppi = self.sga_layer(sga)
-      # tf = self.tf_layer(ppi)      
-      # gexp = self.gep_output_layer(tf)
       
-      x = nn.Tanh()(self.layer_h0(ppi))
-      x = nn.Tanh()(self.layer_h1(x))
-      # x = nn.Tanh()(self.layer_h2(x))
+      ppi = self.alterations(sga)
       
-      gexp = self.gep_output_layer(x)
+      x = self.genes(ppi)
+      x = self.pathways(x)
+      x = self.processes(x)
+      x = self.entities(x)
+      x = self.concepts(x)
       
-      
-      
-
+      tf = self.tf_layer(x)
+      gexp = self.activation(self.gep_output_layer(tf))
+    
       return gexp
 
 
@@ -212,8 +238,11 @@ class BioCitrus(nn.Module):
         self.optimizer.step()
 
         if self.constrain:
-          self.sga_layer.apply(constraints)
-          # self.tf_layer.apply(constraints)
+          self.alterations.apply(constraints)
+          self.genes.apply(constraints)
+          self.pathways.apply(constraints)
+          self.entities.apply(constraints)
+          self.concepts.apply(constraints)
           self.gep_output_layer.apply(constraints)
 
         if not self.verbose: pbar.update()
@@ -224,25 +253,26 @@ class BioCitrus(nn.Module):
         if iter_train == 0 or (test_inc_size and (iter_train % test_inc_size == 0)):
           labels, preds, _ = self.test(test_set, test_batch_size)
                     
-          corr_spearman, corr_pearson = evaluate(
+          corr_spearman, _ = evaluate(
               labels, preds, epsilon=self.epsilon)
           
-          loss_ = loss.cpu().detach().item()
+          # loss_ = loss.cpu().detach().item()
           
           if not self.verbose:
-            pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss_:.3f}')
-            self.metrics.append((loss_, corr_spearman))
+            # pbar.set_description(f'CORR: {corr_spearman:.3f} | MSE: {loss_:.3f}')
+            pbar.set_description(f'CORR: {corr_spearman:.3f}')
+            self.metrics.append((0, corr_spearman))
 
           else:
             print('\x1b[38;5;196m correlation: %.3f, loss: %.3f | w_: %.3f | w_: %.3f \x1b[0m' % 
                 (corr_spearman, 
                 loss, 
-                self.sga_layer[0].weight.data.sum(), 
+                self.alterations[0].weight.data.sum(), 
                 self.tf_layer[0].weight.data.sum())
               )
 
           if self.patience != 0:
-            if es.step(corr_pearson) and iter_train > 180 * test_inc_size:
+            if es.step(corr_spearman) and iter_train > 180 * test_inc_size:
               break
             
       if not self.verbose: pbar.close()

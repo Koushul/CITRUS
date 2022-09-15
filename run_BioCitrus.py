@@ -7,7 +7,7 @@
 import os
 import argparse
 import random
-from utils import cfh, logger, Data, bool_ext, checkCorrelations, generate_masks_from_ppi
+from utils import cfh, generate_masks, logger, Data, bool_ext, checkCorrelations, generate_masks_from_ppi
 from biomodels import BioCitrus
 import torch
 import numpy as np
@@ -26,26 +26,6 @@ else:
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument(
-    "--input_dir", 
-    help="directory of input files", 
-    type=str, 
-    default="./data"
-)
-parser.add_argument(
-    "--output_dir",
-    help="directory of output files",
-    type=str,
-    default="./output",
-)
-
-parser.add_argument(
-    "--algo", 
-    help="clustering algorithm to use on the portein-protein network (DPCLUS, MCODE, COACH)", 
-    type=str, 
-    default='COACH'
-)
-
 
 parser.add_argument(
     "--learning_rate", 
@@ -53,42 +33,42 @@ parser.add_argument(
     type=float, 
     default=1e-3
 )
+
 parser.add_argument(
     "--max_iter", 
     help="maximum number of training iterations", 
     type=int, 
-    default=100
+    default=300
 )
+
 parser.add_argument(
     "--max_fscore",
     help="Max F1 score to early stop model from training",
     type=float,
     default=0.7
 )
+
 parser.add_argument(
     "--batch_size", 
     help="training batch size", 
     type=int, 
     default=100
 )
+
 parser.add_argument(
     "--test_batch_size", 
     help="test batch size", 
     type=int, 
     default=100
 )
+
 parser.add_argument(
     "--test_inc_size",
     help="increment interval size between log outputs",
     type=int,
     default=64
 )
-parser.add_argument(
-    "--dropout_rate", 
-    help="dropout rate", 
-    type=float, 
-    default=0.1
-)
+
 
 parser.add_argument(
     "--weight_decay", 
@@ -96,68 +76,14 @@ parser.add_argument(
     type=float, 
     default=1e-2
 )
-parser.add_argument(
-    "--activation",
-    help="activation function used in hidden layer",
-    type=str,
-    default="tanh",
-)
+
 parser.add_argument(
     "--patience", 
     help="earlystopping patience", 
     type=int, 
     default=10
 )
-parser.add_argument(
-    "--mask01",
-    help="wether to ignore the float value and convert mask to 01",
-    type=bool_ext,
-    default=True,
-)
-parser.add_argument(
-    "--gep_normalization", 
-    help="how to normalize gep", 
-    type=str, 
-    default="scaleRow"
-)
 
-parser.add_argument(
-    "--cancer_type",
-    help="whether to use cancer type or not",
-    type=bool_ext,
-    default=False,
-)
-parser.add_argument(
-    "--train_model",
-    help="whether to train model or load model",
-    type=bool_ext,
-    default=True,
-)
-parser.add_argument(
-    "--dataset_name",
-    help="the dataset name loaded and saved",
-    type=str,
-    default="dataset_CITRUS",
-)
-parser.add_argument(
-    "--tag", 
-    help="a tag passed from command line", 
-    type=str, 
-    default=""
-)
-parser.add_argument(
-    "--run_count", 
-    help="the count for training", 
-    type=str, 
-    default="1"
-)
-
-parser.add_argument(
-    "--ppi_weights", 
-    help="", 
-    type=bool_ext, 
-    default=False
-)
 
 parser.add_argument(
     "--verbose", 
@@ -180,34 +106,11 @@ parser.add_argument(
     default=True
 )
 
-parser.add_argument(
-    "--sparse", 
-    help="only use SIGNOR data, resulting in sparser connections", 
-    type=bool_ext, 
-    default=False
-)
-
-parser.add_argument(
-    "--cancer", 
-    help="", 
-    type=str, 
-    default=''
-)
-
-
 
 
 args = parser.parse_args()
 
-if not os.path.exists(args.output_dir):
-    os.makedirs(args.output_dir)
-
 logger.info('Training BioCITRUS on %s' % device_name)
-
-cancer_type = args.cancer
-
-
-args.cancer_type = cancer_type
 
 collected_metrics = []
 
@@ -227,21 +130,14 @@ for i in range(1):
     args.gep_size = train_set['gep'].shape[1]
     args.tf_gene = data.gene_tf_sga.values.T
     args.can_size = len(np.unique(data.cancer_types))
-    args.sga_size = 11998
     
 
-    sga_mask, sga_weights, tf_mask, tf_weights = generate_masks_from_ppi(sga = data.sga_sga, tf = data.gene_tf_sga, clust_algo=args.algo, sparse=args.sparse)
+    # sga_mask, sga_weights, tf_mask, tf_weights = generate_masks_from_ppi(sga = data.sga_sga, tf = data.gene_tf_sga, clust_algo=args.algo, sparse=args.sparse)
 
     # np.save(f'experiments/init_weights', weights)
+    sga_mask = generate_masks(data)    
 
     sga_mask = sga_mask.to(device)
-    sga_weights = sga_weights.t().to(device)
-    tf_mask = tf_mask.t().to(device)
-    tf_weights = tf_weights.to(device)
-
-    if not args.ppi_weights:
-        ppi_weights = None
-        tf_weights = None
 
     # sga_mask = torch.ones_like(sga_mask)
     # tf_mask = torch.ones_like(tf_mask)
@@ -249,14 +145,23 @@ for i in range(1):
     # biomask = torch.zeros_like(biomask)
     # idx = torch.randperm(biomask.nelement())
     # biomask = biomask.view(-1)[idx].view(biomask.size())
-
-
+    
+    maps = np.load('./pnet_prostate_paper/train/maps.npy', allow_pickle=True)
+    mask_1 = maps[0].loc[list(set(data.sga_genes).intersection(set(maps[0].index)))].values
+    mask_2 = maps[1].values
+    mask_3 = maps[2].values
+    mask_4 = maps[3].values
+    mask_5 = maps[4].values
+    
+        
     model = BioCitrus(
         args = args, 
         sga_ppi_mask = sga_mask, 
-        ppi_tf_mask = tf_mask, 
-        sga_ppi_weights = None, 
-        ppi_tf_weights = None,
+        mask_1 = mask_1,
+        mask_2 = mask_2,
+        mask_3 = mask_3,
+        mask_4 = mask_4,
+        mask_5 = mask_5,
         enable_bias = args.biases
     ).to(device)
 
@@ -283,7 +188,7 @@ for i in range(1):
     # torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/embedded_model.pth')
     
 
-# torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/{cancer_type}_{i}.pth')
+torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/modelx.pth')
 
 # sys.exit(1)
 

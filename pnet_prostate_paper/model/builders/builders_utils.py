@@ -180,13 +180,11 @@ def get_pnet(inputs, features, genes, n_hidden_layers, direction, activation, ac
 
     if n_hidden_layers > 0:
         maps = get_layer_maps(genes, n_hidden_layers, direction, add_unk_genes)
-        
-        np.save('maps.npy', maps)
-        print(maps)
+        np.save('maps2.npy', maps)
+
         exit()
         
-        
-        
+                
         layer_inds = range(1, len(maps))
         # if adaptive_reg:
         #     w_regs = [float(w_reg)/float(i) for i in layer_inds]

@@ -138,7 +138,10 @@ def build_pnet2(optimizer, w_reg, w_reg_outcomes, add_unk_genes=True, sparse=Tru
         genes = cols.levels[0]
     else:
         genes = cols
+        
 
+    genes = np.load('/ihome/hosmanbeyoglu/kor11/tools/CITRUS/sga_genes.npy')
+        
     ins = Input(shape=(n_features,), dtype='float32', name='inputs')
 
     outcome, decision_outcomes, feature_n = get_pnet(ins,

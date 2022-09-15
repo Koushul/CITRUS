@@ -15,14 +15,14 @@ print (hierarchy_df.head())
 print (genes_df.head())
 
 reactome_net = ReactomeNetwork()
-print reactome_net.info()
+# print reactome_net.info()
 
-print '# of root nodes {} , # of terminal nodes {}'.format(len(reactome_net.get_roots()),
-                                                           len(reactome_net.get_terminals()))
-print nx.info(reactome_net.get_completed_tree(n_levels=5))
-print nx.info(reactome_net.get_completed_network(n_levels=5))
+# print '# of root nodes {} , # of terminal nodes {}'.format(len(reactome_net.get_roots()),
+                                                        #    len(reactome_net.get_terminals()))
+# print nx.info(reactome_net.get_completed_tree(n_levels=5))
+# print nx.info(reactome_net.get_completed_network(n_levels=5))
 layers = reactome_net.get_layers(n_levels=3)
-print len(layers)
+# print len(layers)
 
 
 def get_map_from_layer(layer_dict):
@@ -47,4 +47,4 @@ for i, layer in enumerate(layers[::-1]):
     filter_df = pd.DataFrame(index=genes)
     all = filter_df.merge(mapp, right_index=True, left_index=True, how='inner')
     genes = list(mapp.columns)
-    print all.shape
+    # print all.shape

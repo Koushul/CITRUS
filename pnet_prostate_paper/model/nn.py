@@ -192,7 +192,6 @@ class Model(BaseEstimator):
         ret = self.build_fn(**self.model_params)
         
         print(ret)
-        exit()
         
         if type(ret) == tuple:
             self.model, self.feature_names = ret
