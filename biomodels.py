@@ -135,8 +135,8 @@ class BioCitrus(nn.Module):
 
       # # define layer weight clapped by mask
       
-      self.tf_gene = np.where(self.tf_gene>0, 1, 0)
-      # self.tf_gene = np.ones_like(self.tf_gene)
+      # self.tf_gene = np.where(self.tf_gene>0, 1, 0)
+      self.tf_gene = np.ones_like(self.tf_gene)
       # self.tf_gene = np.zeros_like(self.tf_gene)
       
       
@@ -237,13 +237,13 @@ class BioCitrus(nn.Module):
         loss.backward()
         self.optimizer.step()
 
-        if self.constrain:
-          self.alterations.apply(constraints)
-          self.genes.apply(constraints)
-          self.pathways.apply(constraints)
-          self.entities.apply(constraints)
-          self.concepts.apply(constraints)
-          self.gep_output_layer.apply(constraints)
+        # if self.constrain:
+        #   self.alterations.apply(constraints)
+        #   self.genes.apply(constraints)
+        #   self.pathways.apply(constraints)
+        #   self.entities.apply(constraints)
+        #   self.concepts.apply(constraints)
+        #   self.gep_output_layer.apply(constraints)
 
         if not self.verbose: pbar.update()
 
