@@ -87,6 +87,10 @@ class BioCitrus(nn.Module):
         MaskedBioLayer(ppi_tf_mask, bias=enable_bias, init_weights=ppi_tf_weights),
         nn.Tanh(),
       )
+      
+      # self.tf_gene = np.where(self.tf_gene>0, 1, 0)
+      # self.tf_gene = np.ones_like(self.tf_gene)
+      # self.tf_gene = np.zeros_like(self.tf_gene)
 
       self.gep_output_layer = nn.Linear(
           in_features=self.tf_size, out_features=self.gep_size, bias=enable_bias
@@ -192,10 +196,10 @@ class BioCitrus(nn.Module):
         loss.backward()
         self.optimizer.step()
 
-        if self.constrain:
-          self.sga_layer.apply(constraints)
-          self.tf_layer.apply(constraints)
-          self.gep_output_layer.apply(constraints)
+        # if self.constrain:
+        #   self.sga_layer.apply(constraints)
+        #   self.tf_layer.apply(constraints)
+        #   self.gep_output_layer.apply(constraints)
 
         if not self.verbose: pbar.update()
 

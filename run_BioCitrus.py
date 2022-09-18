@@ -106,7 +106,7 @@ parser.add_argument(
     "--patience", 
     help="earlystopping patience", 
     type=int, 
-    default=50
+    default=5
 )
 parser.add_argument(
     "--mask01",
@@ -282,6 +282,36 @@ for i in range(1):
     
     # torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/embedded_model.pth')
     
+print('\n\n')
+logger.info('Extracting Bio Insights')
+
+model.eval()
+X = torch.tensor(test_set['sga'])
+Y = test_set['gep']
+
+from captum.attr import LayerConductance, LayerActivation, LayerIntegratedGradients
+from captum.attr import IntegratedGradients
+
+lc = LayerConductance(model, model.sga_layer)
+ix = list(data.gep_sga.columns).index('PIK3CA')
+a = lc.attribute(X, n_steps=50, attribute_to_layer_input=True, target=[ix]*len(X))
+
+ig_attr_test_sum = a.detach().cpu().numpy().sum(0)
+ig_attr_test_norm_sum = ig_attr_test_sum / np.linalg.norm(ig_attr_test_sum, ord=1)
+
+g = np.array(data.sga_sga.columns)
+at = ig_attr_test_norm_sum
+
+assert g.shape == at.shape
+
+df = pd.DataFrame([g, at]).T
+df.columns = ['label', 'score']
+
+print(df.sort_values(by='score', ascending=False)[:10])
+
+
+
+
 
 # torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/{cancer_type}_{i}.pth')
 

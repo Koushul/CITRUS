@@ -636,6 +636,11 @@ class Data:
         # self.sga_genes.sort()
         self.cancer_types = np.array(self.cancerType_sga['type'].values, dtype=str) #non-unique list
         
+        self.gep_sga = pd.DataFrame(
+            scale(self.gep_sga, axis=1), 
+            columns = self.gep_sga.columns, 
+            index = self.gep_sga.index)
+        
         ## reformat df into dual input per gene
         # _dual_alterations = np.array([('SM_'+i, 'SCNA_'+i) for i in self.sga_genes]).reshape(-1)
         # df = pd.DataFrame(columns=_dual_alterations)
