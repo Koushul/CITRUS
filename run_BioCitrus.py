@@ -280,7 +280,7 @@ for i in range(1):
         
     # collected_metrics.append(model.metrics)
     
-    # torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/embedded_model.pth')
+    torch.save(model.state_dict(), f'/ix/hosmanbeyoglu/kor11/CITRUS_models/embedded_model.pth')
     
 print('\n\n')
 logger.info('Extracting Bio Insights')

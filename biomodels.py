@@ -96,7 +96,6 @@ class BioCitrus(nn.Module):
           in_features=self.tf_size, out_features=self.gep_size, bias=enable_bias
       ) ## gene expression output layer
 
-      ## TODO: Refactor this to use the BioLayerMaskFunction instead
       # define layer weight clapped by mask
       
       
@@ -116,7 +115,7 @@ class BioCitrus(nn.Module):
       self.criterion = nn.MSELoss()
 
       for name, param in self.named_parameters():
-        logger.debug(f'{name} | {param.requires_grad} | {tuple(param.shape)}')
+        logger.debug(f'{name} | {param.requires_grad} | {tuple(param.T.shape)}')
       print('')
       logger.debug(f'Constraints Enabled: {self.constrain}')
       logger.debug(f'Biases Enabled: {enable_bias}')
@@ -129,7 +128,7 @@ class BioCitrus(nn.Module):
 
       ppi = self.sga_layer(sga)
       tf = self.tf_layer(ppi)      
-      gexp = self.gep_output_layer(tf)
+      gexp = nn.Tanh()(self.gep_output_layer(tf))
       
       if with_tf:
         return tf, gexp
