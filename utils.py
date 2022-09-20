@@ -96,7 +96,7 @@ def load_dataset(
     gep = data["gep"]  # gep matrix of tumors: continuous data
     tmr = data["tmr"]  # barcodes of tumors: list of str
     tf_gene = np.array(data["tf_gene"])
-
+    
     #load holdout dataset
     can_r_test = data["can_test"] # cancer type index of tumors: list of int
     sga_r_test = data["sga_test"] # SGA index of tumors: list of list
@@ -269,8 +269,7 @@ def evaluate(labels, preds, epsilon=1e-4):
     flat_preds = np.reshape(preds, -1)
 
     corr_spearman = stats.spearmanr(flat_preds, flat_labels)[0]
-    # corr_pearson = stats.pearsonr(flat_preds, flat_labels)[0]
-    corr_pearson = None
+    corr_pearson = stats.pearsonr(flat_preds, flat_labels)[0]
     return (corr_spearman, corr_pearson)
 
 

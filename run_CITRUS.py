@@ -13,6 +13,16 @@ import argparse
 from utils import bool_ext, load_dataset, split_dataset, evaluate, checkCorrelations
 from models import CITRUS
 import pickle
+import torch
+import numpy as np
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+if device == 'cuda':
+    device_name = torch.cuda.get_device_name(0)
+else:
+    device_name = 'cpu'
+
 
 parser = argparse.ArgumentParser()
 
@@ -56,7 +66,7 @@ parser.add_argument(
     "--learning_rate", 
     help="learning rate for Adam", 
     type=float, 
-    default=1e-3
+    default=1e-2
 )
 parser.add_argument(
     "--max_iter", 
@@ -193,17 +203,13 @@ print("Hyperparameters:")
 print(args)
 args.tf_gene = dataset["tf_gene"]
 
-import torch
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-if device == 'cuda':
-    device_name = torch.cuda.get_device_name(0)
-else:
-    device_name = 'cpu'
+masks = np.load('./pnet_prostate_paper/train/maps.npy', allow_pickle=True)
 
-model = CITRUS(args)  # initialize CITRUS model
+model = CITRUS(args, masks)  # initialize CITRUS model
 model.build(device=device)  # build CITRUS model
 model.to(device)
+
 
 if args.train_model:  # train from scratch
     print(f"Training on {device_name}...")

@@ -9,6 +9,7 @@ Implementation of CITRUS model and its variants.
 
 """
 import os
+from BioLayer import MaskedBioLayer
 import numpy as np
 
 import torch
@@ -19,6 +20,10 @@ import torch.optim as optim
 from utils import get_minibatch, evaluate, EarlyStopping, shuffle_data
 
 from base import ModelBase
+
+from sklearn.metrics import accuracy_score
+
+##[(320, 1387), (1387, 1066), (1066, 447), (447, 147), (147, 26), (26, 1)]
 
 
 class weightConstraint(object):
@@ -37,7 +42,7 @@ class weightConstraint(object):
 class CITRUS(ModelBase):
     """CITRUS model and its variants."""
 
-    def __init__(self, args, **kwargs):
+    def __init__(self, args, masks, **kwargs):
         """Initialize the model.
 
         Parameters
@@ -47,8 +52,12 @@ class CITRUS(ModelBase):
         """
 
         super(CITRUS, self).__init__(args, **kwargs)
-
+        self.masks = masks
+        self.analysis_mode = False
         # torch.manual_seed(0)
+        
+    def analysis(self):
+        self.analysis_mode = True
 
     def build(self, device='cpu'):
         """Define modules of the model."""
@@ -57,12 +66,14 @@ class CITRUS(ModelBase):
             num_embeddings=self.sga_size + 1,
             embedding_dim=self.embedding_size,
             padding_idx=0,
+            scale_grad_by_freq=False
         )
 
         self.layer_can_emb = nn.Embedding(
             num_embeddings=self.can_size + 1,
             embedding_dim=self.embedding_size,
             padding_idx=0,
+            scale_grad_by_freq=False
         )
 
         self.layer_w_0 = nn.Linear(
@@ -76,23 +87,42 @@ class CITRUS(ModelBase):
         self.layer_dropout_1 = nn.Dropout(p=self.dropout_rate)
 
         self.layer_w_1 = nn.Linear(
-            in_features=self.embedding_size, out_features=self.hidden_size, bias=True
+            in_features=self.embedding_size, out_features=447, bias=True
         )
 
         self.layer_dropout_2 = nn.Dropout(p=self.dropout_rate)
 
         self.layer_w_2 = nn.Linear(
-            in_features=self.hidden_size, out_features=self.gep_size, bias=True
+            in_features=320, out_features=self.gep_size, bias=True
         )
+        
+        self.processes = nn.Linear(447, 1066, bias=True)
+        mask_2 = torch.from_numpy(self.masks[2].values.T).float().to(device)
+        self.processes.weight.data = self.processes.weight.data * mask_2.T.cpu()
+        self.processes.weight.register_hook(lambda grad: grad.mul_(mask_2.T))
+        
+        self.pathways = nn.Linear(1066, 1387, bias=True)
+        mask_1 = torch.from_numpy(self.masks[1].values.T).float().to(device)
+        self.pathways.weight.data = self.pathways.weight.data * mask_1.T.cpu()
+        self.pathways.weight.register_hook(lambda grad: grad.mul_(mask_1.T))
+        
+        self.genes = nn.Linear(1387, 320, bias=True)
+        mask_0 = torch.from_numpy(self.masks[0].values.T).float().to(device)
+        self.genes.weight.data = self.genes.weight.data * mask_0.T.cpu()
+        self.genes.weight.register_hook(lambda grad: grad.mul_(mask_0.T))
+        
+        
 
         mask_value = torch.FloatTensor(self.tf_gene.T).to(self.device)
+        
         # define layer weight clapped by mask
         self.layer_w_2.weight.data = self.layer_w_2.weight.data * torch.FloatTensor(
             self.tf_gene.T
         )
         # register a backford hook with the mask value
         self.layer_w_2.weight.register_hook(lambda grad: grad.mul_(mask_value))
-
+        
+        
         self.optimizer = optim.Adam(
             self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
         )
@@ -122,8 +152,9 @@ class CITRUS(ModelBase):
 
         """
 
-        sga_index = sga_index.to(self.device)
-        can_index = can_index.to(self.device)
+        sga_index = sga_index.to(self.device).long()
+        can_index = can_index.to(self.device).long()
+
 
         # cancer type embedding
         emb_can = self.layer_can_emb(can_index)
@@ -142,7 +173,7 @@ class CITRUS(ModelBase):
         # squeeze and tanh-curve the gene embeddings
         E_t_flatten = E_t.view(-1, self.embedding_size)
         E_t1_flatten = torch.tanh(self.layer_w_0(E_t_flatten))
-
+        
         # multiplied by attention heads
         E_t2_flatten = self.layer_beta(E_t1_flatten)
         E_t2 = E_t2_flatten.view(-1, self.num_max_sga, self.attention_head)
@@ -151,7 +182,7 @@ class CITRUS(ModelBase):
         E_t2 = E_t2.permute(1, 0, 2)
         A = F.softmax(E_t2, dim=0)
         A = A.permute(1, 0, 2)
-
+        
         if self.attention:
             # multi-head attention weighted sga embedding:
             emb_sga = torch.sum(torch.bmm(A.permute(0, 2, 1), E_t), dim=1)
@@ -171,12 +202,23 @@ class CITRUS(ModelBase):
         emb_tmr_relu = self.layer_dropout_1(self.activation(emb_tmr))
         hid_tmr = self.layer_w_1(emb_tmr_relu)
         hid_tmr_relu = self.layer_dropout_2(self.activation(hid_tmr))
-
+        
+        x = hid_tmr_relu
+        x = self.processes(self.activation(x))
+        x = self.pathways(self.activation(x))
+        x = self.genes(self.activation(x))
+        hid_tmr_relu = x
+        
         preds = self.layer_w_2(hid_tmr_relu)
+        
 
         # attention weights
         attn_wt = torch.sum(A, dim=2)
         attn_wt = attn_wt.view(-1, self.num_max_sga)
+        
+        if self.analysis_mode:
+            return preds
+        
 
         return preds, hid_tmr, emb_tmr, emb_sga, attn_wt
 
@@ -225,9 +267,8 @@ class CITRUS(ModelBase):
 
 
             self.optimizer.zero_grad()
-
-            loss = self.loss(preds, labels)
-
+            
+            loss = self.loss(preds, labels) 
             loss.backward()
             self.optimizer.step()
 
@@ -240,7 +281,12 @@ class CITRUS(ModelBase):
                 corr_spearman, corr_pearson = evaluate(
                     labels, preds, epsilon=self.epsilon
                 )
-
+                if corr_spearman is None:
+                    corr_spearman = 0
+                    
+                if corr_pearson is None:
+                    corr_pearson = 0
+                    
                 print(
                     "[%d,%d], spearman correlation: %.6f, pearson correlation: %.6f"
                     % (
@@ -322,5 +368,5 @@ class CITRUS(ModelBase):
         attn_wt = np.concatenate(attn_wt, axis=0)
         
         self.train()
-        
+                
         return labels, preds, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr

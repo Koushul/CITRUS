@@ -140,7 +140,7 @@ def build_pnet2(optimizer, w_reg, w_reg_outcomes, add_unk_genes=True, sparse=Tru
         genes = cols
         
 
-    genes = np.load('/ihome/hosmanbeyoglu/kor11/tools/CITRUS/sga_genes.npy')
+    genes = np.load('/ihome/hosmanbeyoglu/kor11/tools/CITRUS/tf_genes.npy', allow_pickle=True)
         
     ins = Input(shape=(n_features,), dtype='float32', name='inputs')
 

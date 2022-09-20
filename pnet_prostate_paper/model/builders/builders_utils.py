@@ -180,7 +180,8 @@ def get_pnet(inputs, features, genes, n_hidden_layers, direction, activation, ac
 
     if n_hidden_layers > 0:
         maps = get_layer_maps(genes, n_hidden_layers, direction, add_unk_genes)
-        np.save('maps2.npy', maps)
+        print([m.shape for m in maps])
+        np.save('maps.npy', maps)
 
         exit()
         
