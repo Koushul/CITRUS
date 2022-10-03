@@ -38,6 +38,7 @@ def get_map_from_layer(layer_dict):
 
 def get_layer_maps(genes, n_levels, direction, add_unk_genes):
     reactome_layers = ReactomeNetwork().get_layers(n_levels, direction)
+    
     filtering_index = genes
     maps = []
     for i, layer in enumerate(reactome_layers[::-1]):
@@ -180,8 +181,12 @@ def get_pnet(inputs, features, genes, n_hidden_layers, direction, activation, ac
 
     if n_hidden_layers > 0:
         maps = get_layer_maps(genes, n_hidden_layers, direction, add_unk_genes)
+        
+
+        
+        
         print([m.shape for m in maps])
-        np.save('maps.npy', maps)
+        np.save('maps_no_tf.npy', maps)
 
         exit()
         

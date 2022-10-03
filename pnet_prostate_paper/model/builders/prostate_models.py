@@ -138,9 +138,11 @@ def build_pnet2(optimizer, w_reg, w_reg_outcomes, add_unk_genes=True, sparse=Tru
         genes = cols.levels[0]
     else:
         genes = cols
-        
+    
+    import pandas as pd
 
-    genes = np.load('/ihome/hosmanbeyoglu/kor11/tools/CITRUS/tf_genes.npy', allow_pickle=True)
+    # genes = np.load('/ihome/hosmanbeyoglu/kor11/tools/CITRUS/tf_genes.npy', allow_pickle=True)
+    genes = pd.read_csv('/ihome/hosmanbeyoglu/kor11/tools/CITRUS/data/CITRUS_GEP_SGAseparated.csv').columns[1:]
         
     ins = Input(shape=(n_features,), dtype='float32', name='inputs')
 

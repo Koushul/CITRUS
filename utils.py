@@ -85,7 +85,7 @@ def bool_ext(rbool):
 
 def load_dataset(
     input_dir="data", mask01=False, dataset_name="", gep_normalization="scaleRow"
-):
+): 
 
     # load dataset
     data = pickle.load(
@@ -137,7 +137,7 @@ def load_dataset(
   
     if gep_normalization == "scaleRow":
         gep_test = scale(gep_test, axis = 1)   
-  
+        
     dataset = {"can":can, "sga":sga, "gep":gep, "tmr":tmr, "tf_gene":tf_gene}
     dataset_test = {"can":can_test, "sga":sga_test, "gep":gep_test, "tmr":tmr_test}
     
@@ -273,7 +273,7 @@ def evaluate(labels, preds, epsilon=1e-4):
     return (corr_spearman, corr_pearson)
 
 
-def checkCorrelations(labels, preds):
+def checkCorrelations(labels, preds, return_value=False):
     corr_row_pearson = 0
     corr_row_spearman = 0
     corr_col_pearson = 0
@@ -286,11 +286,17 @@ def checkCorrelations(labels, preds):
         corr_row_spearman += stats.spearmanr(preds[i, :], labels[i, :])[0]
     corr_row_pearson = corr_row_pearson / nsample
     corr_row_spearman = corr_row_spearman / nsample
+    
+    if return_value:
+        return corr_row_spearman
+        
+
 
     print(
         "spearman sample mean: %.3f, pearson sample mean: %.3f"
         % (corr_row_spearman, corr_row_pearson)
     )
+    
 
     for j in range(ngene):
         corr_col_pearson += stats.pearsonr(preds[:, j], labels[:, j])[0]
@@ -298,10 +304,10 @@ def checkCorrelations(labels, preds):
     corr_col_pearson = corr_col_pearson / ngene
     corr_col_spearman = corr_col_spearman / ngene
 
-    print(
-        "spearman gene mean: %.3f, pearson gene mean: %.3f"
-        % (corr_col_spearman, corr_col_pearson)
-    )
+    # print(
+    #     "spearman gene mean: %.3f, pearson gene mean: %.3f"
+    #     % (corr_col_spearman, corr_col_pearson)
+    # )
 
 
 class EarlyStopping(object):
@@ -650,7 +656,7 @@ class Data:
         # df = df.astype(int)
         # df = df[_dual_alterations]
         
-        self.sga_sga = pd.read_parquet('sga_sga.parquet')
+        # self.sga_sga = pd.read_parquet('sga_sga.parquet')
         self.gep_sga = pd.DataFrame(
             scale(self.gep_sga, axis=1), 
             columns = self.gep_sga.columns, 

@@ -15,6 +15,9 @@ from models import CITRUS
 import pickle
 import torch
 import numpy as np
+import warnings 
+warnings.filterwarnings("ignore") ##This is bad but temporary
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -66,7 +69,7 @@ parser.add_argument(
     "--learning_rate", 
     help="learning rate for Adam", 
     type=float, 
-    default=1e-2
+    default=1e-3
 )
 parser.add_argument(
     "--max_iter", 
@@ -177,10 +180,21 @@ parser.add_argument(
     default="1"
 )
 
+parser.add_argument(
+    "--label", 
+    help="model label", 
+    type=str, 
+    default="untitled"
+)
+
+
 args = parser.parse_args()
 
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
+
+experiment = args.label
+
 
 print("Loading dataset...")
 dataset, dataset_test = load_dataset(
@@ -189,6 +203,24 @@ dataset, dataset_test = load_dataset(
     dataset_name=args.dataset_name,
     gep_normalization=args.gep_normalization,
 )
+
+# import pandas as pd
+# _df = pd.read_csv('/ihome/hosmanbeyoglu/kor11/tools/CITRUS/data/brca_tcga_pan_can_atlas_2018_clinical_data.tsv', sep='\t')
+
+# dataset['can'] = dataset['can'] + 5
+
+# for tmr, subtype in _df[['Patient ID', 'Subtype']].values:
+#     if tmr in dataset['tmr']:
+#         if subtype == 'BRCA_LumA':
+#             dataset['can'][dataset['tmr'].index(tmr)] = 1
+#         if subtype == 'BRCA_LumB':
+#             dataset['can'][dataset['tmr'].index(tmr)] = 2
+#         if subtype == 'BRCA_Basal':
+#             dataset['can'][dataset['tmr'].index(tmr)] = 3
+#         if subtype == 'BRCA_her2':
+#             dataset['can'][dataset['tmr'].index(tmr)] = 4
+#         if subtype == 'BRCA_Normal':
+#             dataset['can'][dataset['tmr'].index(tmr)] = 5
 
 
 train_set, test_set = split_dataset(dataset, ratio=0.66)
@@ -206,9 +238,14 @@ args.tf_gene = dataset["tf_gene"]
 
 masks = np.load('./pnet_prostate_paper/train/maps.npy', allow_pickle=True)
 
+
 model = CITRUS(args, masks)  # initialize CITRUS model
 model.build(device=device)  # build CITRUS model
 model.to(device)
+
+# np.random.shuffle(train_set['sga'])
+# np.random.shuffle(train_set['can'])
+# np.random.shuffle(train_set['gep'])
 
 
 if args.train_model:  # train from scratch
@@ -222,7 +259,7 @@ if args.train_model:  # train from scratch
         max_fscore=args.max_fscore,
         test_inc_size=args.test_inc_size,
     )
-    model.save_model(os.path.join(args.output_dir, "trained_model.pth"))
+    model.save_model(os.path.join(args.output_dir, f'{experiment}.pth'))
 else:  # or directly load trained model
     model.load_model(os.path.join(args.input_dir, "trained_model.pth"))
     
@@ -231,7 +268,7 @@ print("Evaluating...")
 labels, preds, _, _, _, _, _ = model.test(
     test_set, test_batch_size=args.test_batch_size
 )
-print("\nPerformance on validation set:\n")
+print("\nPerformance on validation set:")
 checkCorrelations(labels, preds)
 
 # print("\nPredicting on main dataset...\n")
@@ -243,28 +280,80 @@ labels, preds, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr = model.test(
 # predict on holdout and evaluate the performance
 labels_test, preds_test, _, _, _, _, tmr_test = model.test(dataset_test, test_batch_size=args.test_batch_size)
 
-print("\nPerformance on holdout test set:\n")
+print("\nPerformance on holdout test set:")
 checkCorrelations(labels_test, preds_test)
 
-# get gene emb
-gene_emb = model.layer_sga_emb.weight.data.cpu().numpy()
 
-dataset_out = {
-    "labels": labels,         # measured exp 
-    "preds": preds,           # predicted exp
-    "hid_tmr": hid_tmr,       # TF activity
-    "emb_tmr": emb_tmr,       # tumor embedding
-    "tmr": tmr,               # tumor list
-    "emb_sga": emb_sga,       # straitified tumor embedding
-    "attn_wt": attn_wt,       # attention weight
-    "can": dataset["can"],    # cancer type list
-    "gene_emb": gene_emb,     # gene embedding
-    "tf_gene": model.layer_w_2.weight.data.cpu().numpy(),  # trained weight of tf_gene constrains
-    "labels_test":labels_test,      # measured exp on test set
-    "preds_test":preds_test,        # predicted exp on test set
-    "tmr_test":tmr_test,            # tumor list on test set
-    "can_test":dataset_test["can"]  # cancer type list on test set
-}
+from utils import Data
 
-with open(os.path.join(args.output_dir, "output_{}_{}{}.pkl".format(args.dataset_name, args.run_count, args.tag)), "wb") as f:
-  pickle.dump(dataset_out, f, protocol=2)
+data = Data(
+    fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+    fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+    fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+    fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+)
+
+import pandas as pd
+from scipy.stats import ttest_1samp as ttest
+import warnings 
+from sklearn import metrics
+warnings.filterwarnings("ignore")
+
+d = data.cancerType_sga.loc[dataset['tmr']]
+d['index'] = dataset['can'].reshape(-1)
+
+
+daata = pickle.load( open("/ihome/hosmanbeyoglu/kor11/tools/CITRUS/data/dataset_CITRUS.pkl", "rb") )
+cancers = daata['idx2can']
+
+model.eval()
+
+preds, hid_tmr, tf, _, _  = model.forward(torch.tensor(test_set['sga']), torch.from_numpy(test_set['can']))
+genes_ = test_set['gep'].shape[1]
+test_df = pd.DataFrame(np.concatenate([test_set['gep'], test_set['can'], preds.detach().cpu().numpy()], axis=1))
+
+test_cancers = {}
+for ix, canc in cancers.items():
+    test_cancers[canc] =  {}
+    test_cancers[canc]['test'] = test_df[test_df[genes_]==ix+1].values[:, :genes_]    
+    test_cancers[canc]['pred'] = test_df[test_df[genes_]==ix+1].values[:, genes_+1:] 
+    
+o = ['BLCA', 'BRCA', 'CESC', 'COAD', 
+    'ESCA', 'GBM', 'HNSC', 'KIRC', 
+    'KIRP', 'LIHC', 'LUAD', 'LUSC', 
+    'PCPG', 'PRAD', 'STAD', 'THCA', 
+    'UCEC']
+
+_corrs = []
+_mses = []
+for canc in o:
+        corr = checkCorrelations(test_cancers[canc]['test'], test_cancers[canc]['pred'], return_value=True)
+        mse = metrics.mean_squared_error(test_cancers[canc]['test'], test_cancers[canc]['pred'])
+        
+        _corrs.append(corr)
+        _mses.append(mse)
+        
+print('')
+print(pd.DataFrame(np.column_stack([_corrs, _mses]), index=o, columns=['CORR', 'MSE']))
+
+# gene_emb = model.layer_sga_emb.weight.data.cpu().numpy()
+# dataset_out = {
+#     "labels": labels,         # measured exp 
+#     "preds": preds,           # predicted exp
+#     "hid_tmr": hid_tmr,       # TF activity
+#     "emb_tmr": emb_tmr,       # tumor embedding
+#     "tmr": tmr,               # tumor list
+#     "emb_sga": emb_sga,       # straitified tumor embedding
+#     "attn_wt": attn_wt,       # attention weight
+#     "can": dataset["can"],    # cancer type list
+#     "gene_emb": gene_emb,     # gene embedding
+#     "tf_gene": model.layer_w_2.weight.data.cpu().numpy(),  # trained weight of tf_gene constrains
+#     "labels_test":labels_test,      # measured exp on test set
+#     "preds_test":preds_test,        # predicted exp on test set
+#     "tmr_test":tmr_test,            # tumor list on test set
+#     "can_test":dataset_test["can"]  # cancer type list on test set
+# }
+
+
+# with open(os.path.join(args.output_dir, "outputzz_{}_{}{}.pkl".format(args.dataset_name, args.run_count, args.tag)), "wb") as f:
+#   pickle.dump(dataset_out, f, protocol=2)

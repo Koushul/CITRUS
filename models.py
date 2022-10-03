@@ -25,6 +25,15 @@ from sklearn.metrics import accuracy_score
 
 ##[(320, 1387), (1387, 1066), (1066, 447), (447, 147), (147, 26), (26, 1)]
 
+from utils import Data
+
+data = Data(
+    fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+    fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+    fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+    fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+)
+
 
 class weightConstraint(object):
     """ Define weight constraint for a model layer """
@@ -75,6 +84,11 @@ class CITRUS(ModelBase):
             padding_idx=0,
             scale_grad_by_freq=False
         )
+        
+        self.pik_emb = nn.Embedding(
+            num_embeddings = 2,
+            embedding_dim = self.embedding_size
+        )
 
         self.layer_w_0 = nn.Linear(
             in_features=self.embedding_size, out_features=self.attention_size, bias=True
@@ -96,21 +110,30 @@ class CITRUS(ModelBase):
             in_features=320, out_features=self.gep_size, bias=True
         )
         
-        self.processes = nn.Linear(447, 1066, bias=True)
-        mask_2 = torch.from_numpy(self.masks[2].values.T).float().to(device)
-        self.processes.weight.data = self.processes.weight.data * mask_2.T.cpu()
-        self.processes.weight.register_hook(lambda grad: grad.mul_(mask_2.T))
+        # self.processes = nn.Linear(447, 1066, bias=True)
+        # mask_2 = torch.from_numpy(self.masks[2].values.T).float().to(device)
+        # self.processes.weight.data = self.processes.weight.data * mask_2.T.cpu()
+        # self.processes.weight.register_hook(lambda grad: grad.mul_(mask_2.T))
         
-        self.pathways = nn.Linear(1066, 1387, bias=True)
-        mask_1 = torch.from_numpy(self.masks[1].values.T).float().to(device)
-        self.pathways.weight.data = self.pathways.weight.data * mask_1.T.cpu()
-        self.pathways.weight.register_hook(lambda grad: grad.mul_(mask_1.T))
+        # self.pathways = nn.Linear(1066, 1387, bias=True)
+        # mask_1 = torch.from_numpy(self.masks[1].values.T).float().to(device)
+        # self.pathways.weight.data = self.pathways.weight.data * mask_1.T.cpu()
+        # self.pathways.weight.register_hook(lambda grad: grad.mul_(mask_1.T))
         
-        self.genes = nn.Linear(1387, 320, bias=True)
-        mask_0 = torch.from_numpy(self.masks[0].values.T).float().to(device)
-        self.genes.weight.data = self.genes.weight.data * mask_0.T.cpu()
-        self.genes.weight.register_hook(lambda grad: grad.mul_(mask_0.T))
+        # self.genes = nn.Linear(1387, 320, bias=True)
+        # mask_0 = torch.from_numpy(self.masks[0].values.T).float().to(device)
+        # # mask_0 = torch.ones_like(mask_0) ## make it fully connected
+        # self.genes.weight.data = self.genes.weight.data * mask_0.T.cpu()
+        # self.genes.weight.register_hook(lambda grad: grad.mul_(mask_0.T))
         
+        path_tf_mask = np.load('pathway_tf_mask2.npy', allow_pickle=True)
+        # path_tf_mask = np.load('mm.npy', allow_pickle=True)
+        self.genes = nn.Linear(447, 320, bias=True)
+        path_tf_mask = torch.from_numpy(path_tf_mask.T).float().to(device)
+        self.genes.weight.data = self.genes.weight.data * path_tf_mask.T.cpu()
+        self.genes.weight.register_hook(lambda grad: grad.mul_(path_tf_mask.T))
+        
+        # self.tf_gene = np.where(self.tf_gene>0, 1, 0)
         
 
         mask_value = torch.FloatTensor(self.tf_gene.T).to(self.device)
@@ -154,8 +177,11 @@ class CITRUS(ModelBase):
 
         sga_index = sga_index.to(self.device).long()
         can_index = can_index.to(self.device).long()
-
-
+        
+        is_mut = torch.from_numpy(np.array([int(212 in sga_index[i]) for i in range(len(sga_index))])).to(self.device).long()
+        
+        pik = self.pik_emb(is_mut).view(-1, self.embedding_size)
+        
         # cancer type embedding
         emb_can = self.layer_can_emb(can_index)
         emb_can = emb_can.view(-1, self.embedding_size)
@@ -194,7 +220,7 @@ class CITRUS(ModelBase):
         
         # if use cancer type input, add cancer type embedding
         if self.cancer_type:
-            emb_tmr = emb_can + emb_sga
+            emb_tmr = emb_can + emb_sga + pik
         else:
             emb_tmr = emb_sga
         
@@ -204,10 +230,12 @@ class CITRUS(ModelBase):
         hid_tmr_relu = self.layer_dropout_2(self.activation(hid_tmr))
         
         x = hid_tmr_relu
-        x = self.processes(self.activation(x))
-        x = self.pathways(self.activation(x))
+                
+        # x = self.processes(self.activation(x))
+        # x = self.pathways(self.activation(x))
         x = self.genes(self.activation(x))
-        hid_tmr_relu = x
+        hid_tmr_relu = self.activation(x)
+        
         
         preds = self.layer_w_2(hid_tmr_relu)
         
@@ -219,8 +247,7 @@ class CITRUS(ModelBase):
         if self.analysis_mode:
             return preds
         
-
-        return preds, hid_tmr, emb_tmr, emb_sga, attn_wt
+        return preds, hid_tmr, x, emb_sga, attn_wt
 
     def fit(
         self,
@@ -273,6 +300,8 @@ class CITRUS(ModelBase):
             self.optimizer.step()
 
             self.layer_w_2.apply(constraints)
+            # self.genes.apply(constraints)
+            
 
             if (iter_train % len(train_set["can"])) == 0:
                 train_set = shuffle_data(train_set)
