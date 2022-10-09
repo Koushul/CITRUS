@@ -33,7 +33,7 @@ parser.add_argument(
     "--runs",
     help="number of runs",
     type=int,
-    default=10,
+    default=3,
 )
 args = parser.parse_args()
 

@@ -83,6 +83,85 @@ def bool_ext(rbool):
     return rbool == "True"
 
 
+def syntehsize_mask():
+    
+    data_csv = Data(
+        fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+        fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+        fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+        fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+    )
+    
+    reactome = np.load('./pnet_prostate_paper/train/reactome_layers.npy', allow_pickle=True)[::-1]
+    pathway_names = dict(zip(np.load('pathway_names_keys.npy', allow_pickle=True), 
+        np.load('pathway_names_values.npy', allow_pickle=True)))
+    pathway_names_inverse = dict(zip(np.load('pathway_names_values.npy', allow_pickle=True), 
+                            np.load('pathway_names_keys.npy', allow_pickle=True)))
+    _pathways = np.load('_pathways.npy', allow_pickle=True)
+
+    merged = {}
+    for k, v in reactome[1].items():
+        gene_composition = []
+        for i in v:
+            for j in reactome[0].get(i, []):
+                gene_composition.append(j)
+        merged[k] = gene_composition
+        
+    pathway_tf_mask = pd.DataFrame(np.zeros((320, 1066)), 
+            index=data_csv.gene_tf_sga.columns, 
+            # columns=list(merged.keys())
+            columns = _pathways[1]
+        )
+
+    pathway_tf_mask = pathway_tf_mask.astype(int)
+
+    for gg in data_csv.gene_tf_sga.columns:
+        for k, v in merged.items():
+            if gg in v:
+                pathway_tf_mask.at[gg, pathway_names[k]] = 1
+                
+    pathway_tf_mask = pathway_tf_mask.replace(0, np.nan).dropna(axis=1, how='all').fillna(0)
+    pathway_tf_mask = pathway_tf_mask.drop([None], axis=1)
+
+    merged2 = {}
+    for k, v in reactome[2].items():
+        gene_composition = []
+        for i in v:
+            for j in reactome[1].get(i, []):
+                gene_composition.append(j)
+        merged2[k] = gene_composition
+
+
+
+    masks = np.load('./pnet_prostate_paper/train/maps.npy', allow_pickle=True)
+    pathway_tf_mask2 = pd.DataFrame(np.zeros((320, 447)), 
+            index=data_csv.gene_tf_sga.columns, 
+            # columns=list(merged.keys())
+            columns = _pathways[2]
+        )
+
+    pathway_tf_mask2 = pathway_tf_mask2.astype(int)
+
+    merged2 = {}
+    for c in pathway_tf_mask2.columns:
+        ref = pathway_names_inverse[c]
+        gene_collection = []
+        for ref2 in masks[2][ref][masks[2][ref] > 0].index: 
+            for gi in  merged[ref2]:
+                gene_collection.append(gi)
+
+        merged2[c] = gene_collection
+        
+        
+        
+    for gg in data_csv.gene_tf_sga.columns:
+        for k, v in merged2.items():
+            if gg in v:
+                pathway_tf_mask2.at[gg, k] = 1
+                
+
+    pathway_tf_mask2.shape
+
 def load_dataset(
     input_dir="data", mask01=False, dataset_name="", gep_normalization="scaleRow"
 ): 
@@ -304,10 +383,10 @@ def checkCorrelations(labels, preds, return_value=False):
     corr_col_pearson = corr_col_pearson / ngene
     corr_col_spearman = corr_col_spearman / ngene
 
-    # print(
-    #     "spearman gene mean: %.3f, pearson gene mean: %.3f"
-    #     % (corr_col_spearman, corr_col_pearson)
-    # )
+    print(
+        "spearman gene mean: %.3f, pearson gene mean: %.3f"
+        % (corr_col_spearman, corr_col_pearson)
+    )
 
 
 class EarlyStopping(object):
@@ -667,6 +746,11 @@ class Data:
             self.gep_sga = self.gep_sga.loc[idx]
             self.sga_sga = self.sga_sga.loc[idx]
             self.cancerType_sga = self.cancerType_sga.loc[idx]
+
+            
+        self.transcription_factors = self.gene_tf_sga.columns.values
+        self.tf = self.transcription_factors
+
 
     def get_train_test(self) -> Union[dict, dict]:
         _encoder = {value:key for key, value in dict(enumerate(np.sort(np.unique(self.cancer_types)))).items()}

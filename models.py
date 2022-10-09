@@ -16,6 +16,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import pandas as pd
+
 
 from utils import get_minibatch, evaluate, EarlyStopping, shuffle_data
 
@@ -51,7 +53,7 @@ class weightConstraint(object):
 class CITRUS(ModelBase):
     """CITRUS model and its variants."""
 
-    def __init__(self, args, masks, **kwargs):
+    def __init__(self, args, **kwargs):
         """Initialize the model.
 
         Parameters
@@ -61,12 +63,13 @@ class CITRUS(ModelBase):
         """
 
         super(CITRUS, self).__init__(args, **kwargs)
-        self.masks = masks
         self.analysis_mode = False
-        # torch.manual_seed(0)
+        self.global2mid = pd.read_parquet('global2mid.parquet')
+        self.mid2local = pd.read_parquet('mid2local.parquet')
+        self.local2tf = pd.read_parquet('local2tf.parquet')
         
-    def analysis(self):
-        self.analysis_mode = True
+        # torch.manual_seed(0)
+
 
     def build(self, device='cpu'):
         """Define modules of the model."""
@@ -85,14 +88,10 @@ class CITRUS(ModelBase):
             scale_grad_by_freq=False
         )
         
-        self.pik_emb = nn.Embedding(
-            num_embeddings = 2,
-            embedding_dim = self.embedding_size
-        )
-
         self.layer_w_0 = nn.Linear(
             in_features=self.embedding_size, out_features=self.attention_size, bias=True
         )
+        
 
         self.layer_beta = nn.Linear(
             in_features=self.attention_size, out_features=self.attention_head, bias=True
@@ -100,51 +99,48 @@ class CITRUS(ModelBase):
 
         self.layer_dropout_1 = nn.Dropout(p=self.dropout_rate)
 
-        self.layer_w_1 = nn.Linear(
-            in_features=self.embedding_size, out_features=447, bias=True
-        )
-
         self.layer_dropout_2 = nn.Dropout(p=self.dropout_rate)
 
-        self.layer_w_2 = nn.Linear(
-            in_features=320, out_features=self.gep_size, bias=True
+        self.layer_w_1 = nn.Linear(
+            in_features=self.embedding_size, out_features=self.global2mid.shape[0], bias=True
         )
         
-        # self.processes = nn.Linear(447, 1066, bias=True)
-        # mask_2 = torch.from_numpy(self.masks[2].values.T).float().to(device)
-        # self.processes.weight.data = self.processes.weight.data * mask_2.T.cpu()
-        # self.processes.weight.register_hook(lambda grad: grad.mul_(mask_2.T))
+        self.bnorm_pathways = nn.BatchNorm1d(num_features=self.global2mid.shape[0], track_running_stats=True)
         
-        # self.pathways = nn.Linear(1066, 1387, bias=True)
-        # mask_1 = torch.from_numpy(self.masks[1].values.T).float().to(device)
-        # self.pathways.weight.data = self.pathways.weight.data * mask_1.T.cpu()
-        # self.pathways.weight.register_hook(lambda grad: grad.mul_(mask_1.T))
+        self.global_pathways = nn.Linear(self.global2mid.shape[0], self.global2mid.shape[1], bias=True)
+        global2mid_mask = torch.from_numpy(self.global2mid.values).float().to(device)
+        global2mid_mask = torch.where(global2mid_mask > 0, 1, 0)
+        self.global_pathways.weight.data = self.global_pathways.weight.data * global2mid_mask.T.cpu()
+        self.global_pathways.weight.register_hook(lambda grad: grad.mul_(global2mid_mask.T))
         
-        # self.genes = nn.Linear(1387, 320, bias=True)
-        # mask_0 = torch.from_numpy(self.masks[0].values.T).float().to(device)
-        # # mask_0 = torch.ones_like(mask_0) ## make it fully connected
-        # self.genes.weight.data = self.genes.weight.data * mask_0.T.cpu()
-        # self.genes.weight.register_hook(lambda grad: grad.mul_(mask_0.T))
+        self.middle_pathways = nn.Linear(self.mid2local.shape[0], self.mid2local.shape[1], bias=True)
+        mid2local_mask = torch.from_numpy(self.mid2local.values).float().to(device)
+        mid2local_mask = torch.where(mid2local_mask > 0, 1, 0)
         
-        path_tf_mask = np.load('pathway_tf_mask2.npy', allow_pickle=True)
-        # path_tf_mask = np.load('mm.npy', allow_pickle=True)
-        self.genes = nn.Linear(447, 320, bias=True)
-        path_tf_mask = torch.from_numpy(path_tf_mask.T).float().to(device)
-        self.genes.weight.data = self.genes.weight.data * path_tf_mask.T.cpu()
-        self.genes.weight.register_hook(lambda grad: grad.mul_(path_tf_mask.T))
+        self.middle_pathways.weight.data = self.middle_pathways.weight.data * mid2local_mask.T.cpu()
+        self.middle_pathways.weight.register_hook(lambda grad: grad.mul_(mid2local_mask.T))
+        
+        self.local_pathways = nn.Linear(self.local2tf.shape[0], self.local2tf.shape[1], bias=True)
+        local2tf_mask = torch.from_numpy(self.local2tf.values).float().to(device)
+        # local2tf_mask = torch.where(local2tf_mask > 0, 1, 0)
+        local2tf_mask = torch.ones_like(local2tf_mask)
+        self.local_pathways.weight.data = self.local_pathways.weight.data * local2tf_mask.T.cpu()
+        self.local_pathways.weight.register_hook(lambda grad: grad.mul_(local2tf_mask.T))
+        
+        
+        self.bnorm_tf = nn.BatchNorm1d(num_features=self.local2tf.shape[1], track_running_stats=True)
+        
+        self.layer_w_2 = nn.Linear(
+            in_features=self.tf_gene.shape[0], out_features=self.gep_size, bias=True
+        )
+        
+        
         
         # self.tf_gene = np.where(self.tf_gene>0, 1, 0)
-        
-
         mask_value = torch.FloatTensor(self.tf_gene.T).to(self.device)
         
-        # define layer weight clapped by mask
-        self.layer_w_2.weight.data = self.layer_w_2.weight.data * torch.FloatTensor(
-            self.tf_gene.T
-        )
-        # register a backford hook with the mask value
+        self.layer_w_2.weight.data = self.layer_w_2.weight.data * torch.FloatTensor(self.tf_gene.T)
         self.layer_w_2.weight.register_hook(lambda grad: grad.mul_(mask_value))
-        
         
         self.optimizer = optim.Adam(
             self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
@@ -177,11 +173,7 @@ class CITRUS(ModelBase):
 
         sga_index = sga_index.to(self.device).long()
         can_index = can_index.to(self.device).long()
-        
-        is_mut = torch.from_numpy(np.array([int(212 in sga_index[i]) for i in range(len(sga_index))])).to(self.device).long()
-        
-        pik = self.pik_emb(is_mut).view(-1, self.embedding_size)
-        
+                
         # cancer type embedding
         emb_can = self.layer_can_emb(can_index)
         emb_can = emb_can.view(-1, self.embedding_size)
@@ -220,7 +212,7 @@ class CITRUS(ModelBase):
         
         # if use cancer type input, add cancer type embedding
         if self.cancer_type:
-            emb_tmr = emb_can + emb_sga + pik
+            emb_tmr = emb_can + emb_sga
         else:
             emb_tmr = emb_sga
         
@@ -229,17 +221,16 @@ class CITRUS(ModelBase):
         hid_tmr = self.layer_w_1(emb_tmr_relu)
         hid_tmr_relu = self.layer_dropout_2(self.activation(hid_tmr))
         
-        x = hid_tmr_relu
+        hid_tmr_relu = self.bnorm_pathways(hid_tmr_relu)
+        
+        x = self.global_pathways(self.activation(hid_tmr_relu))
+        x = self.middle_pathways(self.activation(x))
+        tf = self.local_pathways(self.activation(x))
+        
+        tf = self.bnorm_tf(tf)
+        
+        preds = self.layer_w_2(self.activation(tf))
                 
-        # x = self.processes(self.activation(x))
-        # x = self.pathways(self.activation(x))
-        x = self.genes(self.activation(x))
-        hid_tmr_relu = self.activation(x)
-        
-        
-        preds = self.layer_w_2(hid_tmr_relu)
-        
-
         # attention weights
         attn_wt = torch.sum(A, dim=2)
         attn_wt = attn_wt.view(-1, self.num_max_sga)
@@ -247,7 +238,7 @@ class CITRUS(ModelBase):
         if self.analysis_mode:
             return preds
         
-        return preds, hid_tmr, x, emb_sga, attn_wt
+        return preds, tf, hid_tmr, emb_tmr, emb_sga, attn_wt
 
     def fit(
         self,
@@ -289,7 +280,7 @@ class CITRUS(ModelBase):
                 train_set, iter_train, batch_size, batch_type="train"
             )
 
-            preds, hid_tmr, _, _, _ = self.forward(batch_set["sga"], batch_set["can"])
+            preds, _, _, _, _, _ = self.forward(batch_set["sga"], batch_set["can"])
             labels = batch_set["gep"].to(self.device)
 
 
@@ -297,16 +288,18 @@ class CITRUS(ModelBase):
             
             loss = self.loss(preds, labels) 
             loss.backward()
+            
+            # torch.nn.utils.clip_grad_norm_(self.parameters(), 1)
+            
             self.optimizer.step()
 
             self.layer_w_2.apply(constraints)
-            # self.genes.apply(constraints)
             
 
             if (iter_train % len(train_set["can"])) == 0:
                 train_set = shuffle_data(train_set)
             if test_inc_size and (iter_train % test_inc_size == 0):
-                labels, preds, _, _, _, _, _ = self.test(test_set, test_batch_size)
+                labels, preds, _, _, _, _, _, _ = self.test(test_set, test_batch_size)
                 corr_spearman, corr_pearson = evaluate(
                     labels, preds, epsilon=self.epsilon
                 )
@@ -330,7 +323,7 @@ class CITRUS(ModelBase):
 
                         # self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
                         break
-        self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
+        # self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
 
     def test(self, test_set, test_batch_size, **kwargs):
         """Run forward process over the given whole test set.
@@ -360,8 +353,8 @@ class CITRUS(ModelBase):
 
         """
 
-        labels, preds, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr = (
-            [], [], [], [], [], [], [],
+        labels, preds, tf, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr = (
+            [], [], [], [], [], [], [], [],
         )
         
         self.eval()
@@ -373,6 +366,7 @@ class CITRUS(ModelBase):
             )
             (
                 batch_preds,
+                batch_tf,
                 batch_hid_tmr,
                 batch_emb_tmr,
                 batch_emb_sga,
@@ -384,6 +378,7 @@ class CITRUS(ModelBase):
             labels.append(batch_labels.cpu().data.numpy())
             preds.append(batch_preds.cpu().data.numpy())
             hid_tmr.append(batch_hid_tmr.cpu().data.numpy())
+            tf.append(batch_tf.cpu().data.numpy())
             emb_tmr.append(batch_emb_tmr.cpu().data.numpy())
             emb_sga.append(batch_emb_sga.cpu().data.numpy())
             attn_wt.append(batch_attn_wt.cpu().data.numpy())
@@ -392,10 +387,11 @@ class CITRUS(ModelBase):
         labels = np.concatenate(labels, axis=0)
         preds = np.concatenate(preds, axis=0)
         hid_tmr = np.concatenate(hid_tmr, axis=0)
+        tf = np.concatenate(tf, axis=0)
         emb_tmr = np.concatenate(emb_tmr, axis=0)
         emb_sga = np.concatenate(emb_sga, axis=0)
         attn_wt = np.concatenate(attn_wt, axis=0)
         
         self.train()
                 
-        return labels, preds, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr
+        return labels, preds, tf, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr
