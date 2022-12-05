@@ -5,6 +5,7 @@ import streamlit as st
 
 hallmark = pd.read_csv('hallmark.csv')
 
+st.markdown('### CITRUS+ 🍋')
 # from utils import Data, get_ppi_edge_list
 
 # data_csv = Data(
@@ -279,8 +280,8 @@ from scipy.stats import ttest_ind
 # d = data.cancerType_sga.loc[dataset['tmr']]
 # d['index'] = dataset['can'].reshape(-1)
 
-xdf = pd.DataFrame(enumerate(dataset['tmr']))
-xdf.columns = ['idx', 'id']
+# xdf = pd.DataFrame(enumerate(dataset['tmr']))
+# xdf.columns = ['idx', 'id']
 
 # brca = pd.DataFrame(data.sga_sga.loc[data.cancerType_sga[data.cancerType_sga['type']=='BRCA'].index])
 # # brca = pd.DataFrame(data.sga_sga.loc[data.cancerType_sga.index])
@@ -299,15 +300,29 @@ xdf.columns = ['idx', 'id']
 wt = pd.read_parquet('wt.parquet')
 sm_mut = pd.read_parquet('sm_mut.parquet')
 
+# xdf.to_parquet('xdf.parquet', index=None)
+# np.save('sga.npy', dataset['sga'])
+# np.save('can.npy', dataset['can'])
+
+import gzip
+f = gzip.GzipFile('sga.npy.gz', 'r')
+sga = np.load(f)
+f.close()
+
+g = gzip.GzipFile('can.npy.gz', 'r')
+can = np.load(g)
+g.close()
+
+xdf = pd.read_parquet('xdf.parquet')
 
 idx = xdf[xdf.id.isin(wt.index)].idx.values
-X = torch.from_numpy(dataset['sga'])[idx]
-C = torch.from_numpy(dataset['can'][idx])
+X = torch.from_numpy(sga)[idx]
+C = torch.from_numpy(can)[idx]
 r = model(X, C, pathways=True).data.numpy()
 
 idx = xdf[xdf.id.isin(sm_mut.index)].idx.values
-X = torch.from_numpy(dataset['sga'])[idx]
-C = torch.from_numpy(dataset['can'][idx])
+X = torch.from_numpy(sga)[idx]
+C = torch.from_numpy(can[idx])
 s = model(X, C, pathways=True).data.numpy()
 
 
@@ -345,4 +360,4 @@ with st.spinner('Plotting pvalues...'):
 with st.expander('Raw values'):
     st.markdown('#### CITRUS+ Results')
     st.caption('Sorted by pvalue')
-    st.dataframe(results)
+    st.dataframe(results.drop('desc', axis=1))
