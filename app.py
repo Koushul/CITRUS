@@ -3,8 +3,7 @@ import pandas as pd
 import numpy as sns
 import streamlit as st
 
-hallmark = pd.read_excel('./FW__MCF10A_wild_type_and_PIK3CA_H1047R_knock-in_cell_lines/Supplementary Table S4.xlsx', 
-    sheet_name='MCF10A_hallmark_PI3K_Inhibition')
+hallmark = pd.read_csv('hallmark.csv')
 
 # from utils import Data, get_ppi_edge_list
 
