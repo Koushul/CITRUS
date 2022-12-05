@@ -308,8 +308,8 @@ from scipy.stats import ttest_ind
 # wt.to_parquet('wt.parquet', index=None)
 # sm_mut.to_parquet('sm_mut.parquet', index=None)
 
-# wt = pd.read_parquet('wt.parquet')
-# sm_mut = pd.read_parquet('sm_mut.parquet')
+wt = pd.read_parquet('wt.parquet')
+sm_mut = pd.read_parquet('sm_mut.parquet')
 
 # # xdf.to_parquet('xdf.parquet', index=None)
 # # np.save('sga.npy', dataset['sga'])
