@@ -1,6 +1,5 @@
 from pathlib import Path
 import pandas as pd
-import numpy as sns
 import streamlit as st
 
 hallmark = pd.read_csv('hallmark.csv')
