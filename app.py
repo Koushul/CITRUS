@@ -5,7 +5,19 @@ import streamlit as st
 
 hallmark = pd.read_csv('hallmark.csv')
 
+
+st.set_page_config(
+    page_title='CITRUS+',
+    page_icon="🍋",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={}
+)
+
+
 st.markdown('### CITRUS+ 🍋')
+
+
 # from utils import Data, get_ppi_edge_list
 
 # data_csv = Data(
