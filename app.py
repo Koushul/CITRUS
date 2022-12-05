@@ -315,68 +315,68 @@ from scipy.stats import ttest_ind
 # # np.save('sga.npy', dataset['sga'])
 # # np.save('can.npy', dataset['can'])
 
-# import gzip
-# f = gzip.GzipFile('sga.npy.gz', 'r')
-# sga = np.load(f)
-# f.close()
+import gzip
+f = gzip.GzipFile('sga.npy.gz', 'r')
+sga = np.load(f)
+f.close()
 
-# g = gzip.GzipFile('can.npy.gz', 'r')
-# can = np.load(g)
-# g.close()
+g = gzip.GzipFile('can.npy.gz', 'r')
+can = np.load(g)
+g.close()
 
-# xdf = pd.read_parquet('xdf.parquet')
+xdf = pd.read_parquet('xdf.parquet')
 
-# idx = xdf[xdf.id.isin(wt.index)].idx.values
-# X = torch.from_numpy(sga)[idx]
-# C = torch.from_numpy(can)[idx]
-# r = model(X, C, pathways=True).data.numpy()
+idx = xdf[xdf.id.isin(wt.index)].idx.values
+X = torch.from_numpy(sga)[idx]
+C = torch.from_numpy(can)[idx]
+r = model(X, C, pathways=True).data.numpy()
 
-# idx = xdf[xdf.id.isin(sm_mut.index)].idx.values
-# X = torch.from_numpy(sga)[idx]
-# C = torch.from_numpy(can[idx])
-# s = model(X, C, pathways=True).data.numpy()
-
-
-# p_predicted = pd.DataFrame(ttest_ind(r, s).pvalue, 
-#         index=hallmark.Description, 
-#         columns=['pvalue']).sort_values(by='pvalue', ascending=True).loc[hallmark.Description].pvalue.values
+idx = xdf[xdf.id.isin(sm_mut.index)].idx.values
+X = torch.from_numpy(sga)[idx]
+C = torch.from_numpy(can[idx])
+s = model(X, C, pathways=True).data.numpy()
 
 
-# p_exp = hallmark['pvalue'].values
-
-# p_predicted = -1*np.log10(p_predicted)
-# p_exp = -1*np.log10(p_exp)
-
-
-# results = pd.DataFrame([p_exp, p_predicted]).T
-# results.columns = ['-log10 (MCF10A pvalue)', '-log10 (CITRUS+ pvalue)']
-# results.index = hallmark.Description
-
-# st.markdown('#### MCF10A Data')
-# st.caption('Sorted by pvalue')
-# st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
+p_predicted = pd.DataFrame(ttest_ind(r, s).pvalue, 
+        index=hallmark.Description, 
+        columns=['pvalue']).sort_values(by='pvalue', ascending=True).loc[hallmark.Description].pvalue.values
 
 
-# results['desc'] = results.index
+p_exp = hallmark['pvalue'].values
 
-# import plotly.express as px
-# from scipy.stats import spearmanr
+p_predicted = -1*np.log10(p_predicted)
+p_exp = -1*np.log10(p_exp)
 
-# st.markdown('#### CITRUS+ versus MCF10A data')
-# st.caption('Hover on data to see pathway names')
-# with st.spinner('Plotting pvalues...'):
 
-#     fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
-#         x='-log10 (MCF10A pvalue)', 
-#         y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
+results = pd.DataFrame([p_exp, p_predicted]).T
+results.columns = ['-log10 (MCF10A pvalue)', '-log10 (CITRUS+ pvalue)']
+results.index = hallmark.Description
+
+st.markdown('#### MCF10A Data')
+st.caption('Sorted by pvalue')
+st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
+
+
+results['desc'] = results.index
+
+import plotly.express as px
+from scipy.stats import spearmanr
+
+st.markdown('#### CITRUS+ versus MCF10A data')
+st.caption('Hover on data to see pathway names')
+with st.spinner('Plotting pvalues...'):
+
+    fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
+        x='-log10 (MCF10A pvalue)', 
+        y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
     
-#     st.plotly_chart(fig)
+    st.plotly_chart(fig)
     
-# with st.expander('Raw values'):
-#     st.markdown('#### CITRUS+ Results')
-#     st.dataframe(results.drop('desc', axis=1))
+with st.expander('Raw values'):
+    st.markdown('#### CITRUS+ Results')
+    st.dataframe(results.drop('desc', axis=1))
     
-# pathway = st.selectbox('View genes in pathway', hallmark.Description.str[9:], len(hallmark)-3)
+pathway = st.selectbox('View genes in pathway', hallmark.Description.str[9:], len(hallmark)-3)
 
-# st.write(f'Genes in {pathway}')
-# st.write(hallmark[hallmark.Description==f'HALLMARK_{pathway}']['core_enrichment'].values[0].split('/'))
+st.write(f'Genes in {pathway}')
+st.write(hallmark[hallmark.Description==f'HALLMARK_{pathway}']['core_enrichment'].values[0].split('/'))
