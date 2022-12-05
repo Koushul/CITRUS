@@ -1,6 +1,6 @@
 /data
 /pnet_prostate_paper/_database
-/output
+# /output
 /to_KouShul
 /gincco
 .vscode
