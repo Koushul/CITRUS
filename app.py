@@ -3,17 +3,17 @@ import pandas as pd
 import numpy as sns
 import streamlit as st
 
-hallmark = pd.read_excel('/ihome/hosmanbeyoglu/kor11/tools/CITRUS/FW__MCF10A_wild_type_and_PIK3CA_H1047R_knock-in_cell_lines/Supplementary Table S4.xlsx', 
+hallmark = pd.read_excel('./FW__MCF10A_wild_type_and_PIK3CA_H1047R_knock-in_cell_lines/Supplementary Table S4.xlsx', 
     sheet_name='MCF10A_hallmark_PI3K_Inhibition')
 
-from utils import Data, get_ppi_edge_list
+# from utils import Data, get_ppi_edge_list
 
-data_csv = Data(
-    fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
-    fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
-    fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
-    fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
-)
+# data_csv = Data(
+#     fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+#     fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+#     fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+#     fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+# )
 
 # ppi = pd.DataFrame(get_ppi_edge_list(sparse=False)[:, :2], columns=['A', 'B'])
 # tf_ppi = ppi[ppi.A.isin(data_csv.tf) | ppi.B.isin(data_csv.tf)]
@@ -247,7 +247,7 @@ with st.spinner('Loading PyTorch model'):
     model.build(device=device)  # build CITRUS model
     model.to(device);
 
-    model.load_state_dict(torch.load(f'/ihome/hosmanbeyoglu/kor11/tools/CITRUS/output/{model_choice}', 
+    model.load_state_dict(torch.load(f'./output/{model_choice}', 
                         map_location=torch.device('cpu')))
     model.eval()
 
@@ -258,7 +258,16 @@ st.code(model)
 from utils import Data
 from scipy.stats import ttest_ind
 
-data = data_csv
+@st.cache
+def load_data_csv():
+    return Data(
+        fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+        fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+        fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+        fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+    )
+
+data = load_data_csv()
 d = data.cancerType_sga.loc[dataset['tmr']]
 d['index'] = dataset['can'].reshape(-1)
 
