@@ -28,7 +28,8 @@ from tqdm import tqdm
 import networkx as nx
 from networkx.algorithms.components import connected_components
 
-
+import warnings 
+warnings.filterwarnings("ignore")
 
 import logging
 level = logging.DEBUG

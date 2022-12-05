@@ -36,6 +36,9 @@ data = Data(
     fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
 )
 
+import warnings 
+warnings.filterwarnings("ignore")
+
 
 class weightConstraint(object):
     """ Define weight constraint for a model layer """
@@ -64,10 +67,8 @@ class CITRUS(ModelBase):
 
         super(CITRUS, self).__init__(args, **kwargs)
         self.analysis_mode = False
-        self.global2mid = pd.read_parquet('global2mid.parquet')
-        self.mid2local = pd.read_parquet('mid2local.parquet')
-        self.local2tf = pd.read_parquet('local2tf.parquet')
-        
+        self.mask = np.load('hallmark_mask.npy', allow_pickle=True)
+        self.verbose = True
         # torch.manual_seed(0)
 
 
@@ -102,33 +103,19 @@ class CITRUS(ModelBase):
         self.layer_dropout_2 = nn.Dropout(p=self.dropout_rate)
 
         self.layer_w_1 = nn.Linear(
-            in_features=self.embedding_size, out_features=self.global2mid.shape[0], bias=True
+            in_features=self.embedding_size, out_features=self.mask.shape[0], bias=True
         )
         
-        self.bnorm_pathways = nn.BatchNorm1d(num_features=self.global2mid.shape[0], track_running_stats=True)
-        
-        self.global_pathways = nn.Linear(self.global2mid.shape[0], self.global2mid.shape[1], bias=True)
-        global2mid_mask = torch.from_numpy(self.global2mid.values).float().to(device)
-        global2mid_mask = torch.where(global2mid_mask > 0, 1, 0)
-        self.global_pathways.weight.data = self.global_pathways.weight.data * global2mid_mask.T.cpu()
-        self.global_pathways.weight.register_hook(lambda grad: grad.mul_(global2mid_mask.T))
-        
-        self.middle_pathways = nn.Linear(self.mid2local.shape[0], self.mid2local.shape[1], bias=True)
-        mid2local_mask = torch.from_numpy(self.mid2local.values).float().to(device)
-        mid2local_mask = torch.where(mid2local_mask > 0, 1, 0)
-        
-        self.middle_pathways.weight.data = self.middle_pathways.weight.data * mid2local_mask.T.cpu()
-        self.middle_pathways.weight.register_hook(lambda grad: grad.mul_(mid2local_mask.T))
-        
-        self.local_pathways = nn.Linear(self.local2tf.shape[0], self.local2tf.shape[1], bias=True)
-        local2tf_mask = torch.from_numpy(self.local2tf.values).float().to(device)
-        # local2tf_mask = torch.where(local2tf_mask > 0, 1, 0)
-        local2tf_mask = torch.ones_like(local2tf_mask)
-        self.local_pathways.weight.data = self.local_pathways.weight.data * local2tf_mask.T.cpu()
-        self.local_pathways.weight.register_hook(lambda grad: grad.mul_(local2tf_mask.T))
+        self.bnorm_pathways = nn.BatchNorm1d(num_features=self.mask.shape[0], track_running_stats=True)
         
         
-        self.bnorm_tf = nn.BatchNorm1d(num_features=self.local2tf.shape[1], track_running_stats=True)
+        self.pathways = nn.Linear(self.mask.shape[0], self.mask.shape[1], bias=True)
+        mask = torch.from_numpy(self.mask).float().to(device)
+        self.pathways.weight.data = self.pathways.weight.data * mask.T.cpu()
+        self.pathways.weight.register_hook(lambda grad: grad.mul_(mask.T))
+        
+        
+        self.bnorm_tf = nn.BatchNorm1d(num_features=self.mask.shape[1], track_running_stats=True)
         
         self.layer_w_2 = nn.Linear(
             in_features=self.tf_gene.shape[0], out_features=self.gep_size, bias=True
@@ -148,7 +135,7 @@ class CITRUS(ModelBase):
 
         self.loss = nn.MSELoss().to(self.device)
 
-    def forward(self, sga_index, can_index):
+    def forward(self, sga_index, can_index, pathways=False):
         """Forward process.
 
         Parameters
@@ -223,11 +210,13 @@ class CITRUS(ModelBase):
         
         hid_tmr_relu = self.bnorm_pathways(hid_tmr_relu)
         
-        x = self.global_pathways(self.activation(hid_tmr_relu))
-        x = self.middle_pathways(self.activation(x))
-        tf = self.local_pathways(self.activation(x))
+        if pathways:
+            return hid_tmr_relu
         
-        tf = self.bnorm_tf(tf)
+        x = self.pathways(self.activation(hid_tmr_relu))
+        tf = self.bnorm_tf(x)
+        
+
         
         preds = self.layer_w_2(self.activation(tf))
                 
@@ -299,7 +288,7 @@ class CITRUS(ModelBase):
             if (iter_train % len(train_set["can"])) == 0:
                 train_set = shuffle_data(train_set)
             if test_inc_size and (iter_train % test_inc_size == 0):
-                labels, preds, _, _, _, _, _, _ = self.test(test_set, test_batch_size)
+                labels, preds, _, _, _, _, _ = self.test(test_set, test_batch_size)
                 corr_spearman, corr_pearson = evaluate(
                     labels, preds, epsilon=self.epsilon
                 )
@@ -308,16 +297,17 @@ class CITRUS(ModelBase):
                     
                 if corr_pearson is None:
                     corr_pearson = 0
-                    
-                print(
-                    "[%d,%d], spearman correlation: %.6f, pearson correlation: %.6f"
-                    % (
-                        iter_train // len(train_set["can"]),
-                        iter_train % len(train_set["can"]),
-                        corr_spearman,
-                        corr_pearson,
+                
+                if self.verbose:  
+                    print(
+                        "[%d,%d], spearman correlation: %.6f, pearson correlation: %.6f"
+                        % (
+                            iter_train // len(train_set["can"]),
+                            iter_train % len(train_set["can"]),
+                            corr_spearman,
+                            corr_pearson,
+                        )
                     )
-                )
                 if self.patience != 0:
                     if es.step(corr_pearson) and iter_train > 180 * test_inc_size:
 
@@ -394,4 +384,4 @@ class CITRUS(ModelBase):
         
         self.train()
                 
-        return labels, preds, tf, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr
+        return labels, preds, tf, hid_tmr, emb_tmr, emb_sga, attn_wt

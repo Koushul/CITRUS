@@ -242,25 +242,22 @@ print(model)
 # np.random.shuffle(train_set['gep'])
 
 
-if args.train_model:  # train from scratch
-    print(f"Training on {device_name}...")
-    model.fit(
-        train_set,
-        test_set,
-        batch_size=args.batch_size,
-        test_batch_size=args.test_batch_size,
-        max_iter=args.max_iter,
-        max_fscore=args.max_fscore,
-        test_inc_size=args.test_inc_size,
-    )
-    # model.save_model(os.path.join(args.output_dir, f'model_{args.run_count}_{args.tag}.pth'))
-    model.save_model(os.path.join(args.output_dir, f'model0909.pth'))
-else:  # or directly load trained model
-    model.load_model(os.path.join(args.input_dir, "trained_model.pth"))
+print(f"Training on {device_name}...")
+model.fit(
+    train_set,
+    test_set,
+    batch_size=args.batch_size,
+    test_batch_size=args.test_batch_size,
+    max_iter=args.max_iter,
+    max_fscore=args.max_fscore,
+    test_inc_size=args.test_inc_size,
+)
+# model.save_model(os.path.join(args.output_dir, f'model_{args.run_count}_{args.tag}.pth'))
+model.save_model(os.path.join(args.output_dir, f'modelx.pth'))
     
 # evaluation
 print("Evaluating...")
-labels, preds, _, _, _, _, _, _ = model.test(
+labels, preds, _, _, _, _, _ = model.test(
     test_set, test_batch_size=args.test_batch_size
 )
 print("\nPerformance on validation set:")
@@ -268,12 +265,12 @@ checkCorrelations(labels, preds)
 
 # print("\nPredicting on main dataset...\n")
 # get training attn_wt and others
-labels, preds, tf, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr = model.test(
+labels, preds, tf, hid_tmr, emb_tmr, emb_sga, attn_wt = model.test(
     dataset, test_batch_size=args.test_batch_size
 )
 # print("Predicting on test dataset...\n")
 # predict on holdout and evaluate the performance
-labels_test, preds_test, _, _, _, _, _, tmr_test = model.test(dataset_test, test_batch_size=args.test_batch_size)
+labels_test, preds_test, _, _, _, _, _ = model.test(dataset_test, test_batch_size=args.test_batch_size)
 
 print("\nPerformance on holdout test set:")
 checkCorrelations(labels_test, preds_test)
@@ -287,7 +284,7 @@ dataset_out = {
     "hid_tmr": tf,            # TF activity
     "pathways": hid_tmr,      # pathways activity
     "emb_tmr": emb_tmr,       # tumor embedding
-    "tmr": tmr,               # tumor list
+    # "tmr": tmr,               # tumor list
     "emb_sga": emb_sga,       # straitified tumor embedding
     "attn_wt": attn_wt,       # attention weight
     "can": dataset["can"],    # cancer type list
@@ -295,7 +292,7 @@ dataset_out = {
     "tf_gene": model.layer_w_2.weight.data.cpu().numpy(),  # trained weight of tf_gene constrains
     "labels_test": labels_test,      # measured exp on test set
     "preds_test": preds_test,        # predicted exp on test set
-    "tmr_test": tmr_test,            # tumor list on test set
+    # "tmr_test": tmr_test,            # tumor list on test set
     "can_test": dataset_test["can"]  # cancer type list on test set
 }
 
@@ -303,7 +300,7 @@ dataset_out = {
 # with open(os.path.join(args.output_dir, "outputx_{}_{}{}.pkl".format(args.dataset_name, args.run_count, args.tag)), "wb") as f:
 #   pickle.dump(dataset_out, f, protocol=2)
 
-
+exit()
 import pandas as pd
 
 
