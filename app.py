@@ -373,7 +373,7 @@ with st.expander('Raw values'):
     st.markdown('#### CITRUS+ Results')
     st.dataframe(results.drop('desc', axis=1))
     
-pathway = st.selectbox('View genes in pathway', hallmark.Description.str[9:])
+pathway = st.selectbox('View genes in pathway', hallmark.Description.str[9:], len(hallmark)-3)
 
 st.write(f'Genes in {pathway}')
 st.write(hallmark[hallmark.Description==f'HALLMARK_{pathway}']['core_enrichment'].values[0].split('/'))
