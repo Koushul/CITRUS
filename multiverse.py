@@ -249,8 +249,8 @@ def fractured_universe(args, idd):
     }
 
 
-    with open(os.path.join(args.output_dir, "output_{}.pkl".format(model.idd)), "wb") as f:
-        pickle.dump(dataset_out, f, protocol=2)
+    # with open(os.path.join(args.output_dir, "output_{}.pkl".format(model.idd)), "wb") as f:
+    #     pickle.dump(dataset_out, f, protocol=2)
     
     
     return dataset_out, model.idd, checkCorrelations(labels, preds, return_value=True)
