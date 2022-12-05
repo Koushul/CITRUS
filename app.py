@@ -345,8 +345,8 @@ p_predicted = pd.DataFrame(ttest_ind(r, s).pvalue,
 
 p_exp = hallmark['pvalue'].values
 
-p_predicted = np.log10(p_predicted)
-p_exp = np.log10(p_exp)
+p_predicted = -1*np.log10(p_predicted)
+p_exp = -1*np.log10(p_exp)
 
 
 results = pd.DataFrame([p_exp, p_predicted]).T
