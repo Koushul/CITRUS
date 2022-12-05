@@ -367,7 +367,7 @@ st.markdown('#### CITRUS+ versus MCF10A data')
 st.caption('Hover on data to see pathway names')
 with st.spinner('Plotting pvalues...'):
 
-    fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp)}',
+    fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
         x='-log10 (MCF10A pvalue)', 
         y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
     
