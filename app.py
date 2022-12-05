@@ -234,6 +234,16 @@ with st.spinner('Loading dataset'):
     args.tf_gene = dataset["tf_gene"]
 
 
+# args.can_size = 17
+# args.sga_size = 11998
+# args.gep_size = 5541
+# args.num_max_sga = 1396
+# args.hidden_size = 320
+# args.tf_gene = 
+
+np.save('tf_gene.npy', dataset['tf_gene'])
+
+
 saved_models = [i.name for i in Path('./output').glob('*.pth')]
 
 
