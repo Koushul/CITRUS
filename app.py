@@ -360,24 +360,24 @@ st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
 
 results['desc'] = results.index
 
-import plotly.express as px
-from scipy.stats import spearmanr
+# import plotly.express as px
+# from scipy.stats import spearmanr
 
-st.markdown('#### CITRUS+ versus MCF10A data')
-st.caption('Hover on data to see pathway names')
-with st.spinner('Plotting pvalues...'):
+# st.markdown('#### CITRUS+ versus MCF10A data')
+# st.caption('Hover on data to see pathway names')
+# with st.spinner('Plotting pvalues...'):
 
-    fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
-        x='-log10 (MCF10A pvalue)', 
-        y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
+#     fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
+#         x='-log10 (MCF10A pvalue)', 
+#         y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
     
-    st.plotly_chart(fig)
+#     st.plotly_chart(fig)
     
-with st.expander('Raw values'):
-    st.markdown('#### CITRUS+ Results')
-    st.dataframe(results.drop('desc', axis=1))
+# with st.expander('Raw values'):
+#     st.markdown('#### CITRUS+ Results')
+#     st.dataframe(results.drop('desc', axis=1))
     
-pathway = st.selectbox('View genes in pathway', hallmark.Description.str[9:], len(hallmark)-3)
+# pathway = st.selectbox('View genes in pathway', hallmark.Description.str[9:], len(hallmark)-3)
 
-st.write(f'Genes in {pathway}')
-st.write(hallmark[hallmark.Description==f'HALLMARK_{pathway}']['core_enrichment'].values[0].split('/'))
+# st.write(f'Genes in {pathway}')
+# st.write(hallmark[hallmark.Description==f'HALLMARK_{pathway}']['core_enrichment'].values[0].split('/'))
