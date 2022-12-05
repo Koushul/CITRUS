@@ -27,17 +27,17 @@ from sklearn.metrics import accuracy_score
 
 ##[(320, 1387), (1387, 1066), (1066, 447), (447, 147), (147, 26), (26, 1)]
 
-from utils import Data
+# from utils import Data
 
-data = Data(
-    fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
-    fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
-    fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
-    fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
-)
+# data = Data(
+#     fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+#     fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+#     fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+#     fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+# )
 
-import warnings 
-warnings.filterwarnings("ignore")
+# import warnings 
+# warnings.filterwarnings("ignore")
 
 
 class weightConstraint(object):

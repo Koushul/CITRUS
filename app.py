@@ -254,36 +254,41 @@ st.markdown('#### Model Summary')
 st.code(model)
 
 
-from utils import Data
+# from utils import Data
 from scipy.stats import ttest_ind
 
-@st.cache
-def load_data_csv():
-    return Data(
-        fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
-        fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
-        fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
-        fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
-    )
+# @st.cache
+# def load_data_csv():
+#     return Data(
+#         fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+#         fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+#         fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+#         fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+#     )
 
-data = load_data_csv()
-d = data.cancerType_sga.loc[dataset['tmr']]
-d['index'] = dataset['can'].reshape(-1)
+# data = load_data_csv()
+# d = data.cancerType_sga.loc[dataset['tmr']]
+# d['index'] = dataset['can'].reshape(-1)
 
 xdf = pd.DataFrame(enumerate(dataset['tmr']))
 xdf.columns = ['idx', 'id']
 
-brca = pd.DataFrame(data.sga_sga.loc[data.cancerType_sga[data.cancerType_sga['type']=='BRCA'].index])
-# brca = pd.DataFrame(data.sga_sga.loc[data.cancerType_sga.index])
+# brca = pd.DataFrame(data.sga_sga.loc[data.cancerType_sga[data.cancerType_sga['type']=='BRCA'].index])
+# # brca = pd.DataFrame(data.sga_sga.loc[data.cancerType_sga.index])
 
-is_mutated_gene = 'PIK3CA'
+# is_mutated_gene = 'PIK3CA'
 
-wt = brca[(brca[f'SM_{is_mutated_gene}'] == 0) & (brca[f'SCNA_{is_mutated_gene}'] == 0)]
-sm_mut = brca[(brca[f'SM_{is_mutated_gene}'] == 1) & (brca[f'SCNA_{is_mutated_gene}'] == 0)]
-scna_mut = brca[(brca[f'SM_{is_mutated_gene}'] == 0) & (brca[f'SCNA_{is_mutated_gene}'] == 1)]
-sm_scna_mut = brca[(brca[f'SM_{is_mutated_gene}'] == 1) & (brca[f'SCNA_{is_mutated_gene}'] == 1)]
-# wt.shape, sm_mut.shape, scna_mut.shape, sm_scna_mut.shape
+# wt = brca[(brca[f'SM_{is_mutated_gene}'] == 0) & (brca[f'SCNA_{is_mutated_gene}'] == 0)]
+# sm_mut = brca[(brca[f'SM_{is_mutated_gene}'] == 1) & (brca[f'SCNA_{is_mutated_gene}'] == 0)]
+# scna_mut = brca[(brca[f'SM_{is_mutated_gene}'] == 0) & (brca[f'SCNA_{is_mutated_gene}'] == 1)]
+# sm_scna_mut = brca[(brca[f'SM_{is_mutated_gene}'] == 1) & (brca[f'SCNA_{is_mutated_gene}'] == 1)]
+# # wt.shape, sm_mut.shape, scna_mut.shape, sm_scna_mut.shape
 
+# wt.to_parquet('wt.parquet', index=None)
+# sm_mut.to_parquet('sm_mut.parquet', index=None)
+
+wt = pd.read_parquet('wt.parquet')
+sm_mut = pd.read_parquet('sm_mut.parquet')
 
 
 idx = xdf[xdf.id.isin(wt.index)].idx.values
