@@ -208,40 +208,39 @@ parser.add_argument(
 
 args = parser.parse_args([])
 
-@st.cache
-def load_data():
-    dataset, dataset_test = load_dataset(
-        input_dir=args.input_dir,
-        mask01=args.mask01,
-        dataset_name=args.dataset_name,
-        gep_normalization=args.gep_normalization,
-    )
+# @st.cache
+# def load_data():
+#     dataset, dataset_test = load_dataset(
+#         input_dir=args.input_dir,
+#         mask01=args.mask01,
+#         dataset_name=args.dataset_name,
+#         gep_normalization=args.gep_normalization,
+#     )
 
-    train_set, test_set = split_dataset(dataset, ratio=0.66)
+#     train_set, test_set = split_dataset(dataset, ratio=0.66)
     
-    return dataset, train_set, test_set
+#     return dataset, train_set, test_set
 
-with st.spinner('Loading dataset'):
+# with st.spinner('Loading dataset'):
     
-    dataset, train_set, test_set = load_data()
+#     dataset, train_set, test_set = load_data()
 
-    args.can_size = dataset["can"].max()  # cancer type dimension
-    args.sga_size = dataset["sga"].max()  # SGA dimension
-    args.gep_size = dataset["gep"].shape[1]  # GEP output dimension
-    args.num_max_sga = dataset["sga"].shape[1]  # maximum number of SGAs in a tumor
+#     args.can_size = dataset["can"].max()  # cancer type dimension
+#     args.sga_size = dataset["sga"].max()  # SGA dimension
+#     args.gep_size = dataset["gep"].shape[1]  # GEP output dimension
+#     args.num_max_sga = dataset["sga"].shape[1]  # maximum number of SGAs in a tumor
 
-    args.hidden_size = dataset["tf_gene"].shape[0]
-    args.tf_gene = dataset["tf_gene"]
+#     args.hidden_size = dataset["tf_gene"].shape[0]
+#     args.tf_gene = dataset["tf_gene"]
 
 
-# args.can_size = 17
-# args.sga_size = 11998
-# args.gep_size = 5541
-# args.num_max_sga = 1396
-# args.hidden_size = 320
-# args.tf_gene = 
+args.can_size = 17
+args.sga_size = 11998
+args.gep_size = 5541
+args.num_max_sga = 1396
+args.hidden_size = 320
+args.tf_gene = np.load('tf_gene.npy')
 
-np.save('tf_gene.npy', dataset['tf_gene'])
 
 
 saved_models = [i.name for i in Path('./output').glob('*.pth')]
