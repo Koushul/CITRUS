@@ -17,6 +17,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import pandas as pd
+from scipy.stats import ttest_ind
+import gzip
+from scipy.stats import spearmanr
+
 
 
 from utils import get_minibatch, evaluate, EarlyStopping, shuffle_data
@@ -24,6 +28,9 @@ from utils import get_minibatch, evaluate, EarlyStopping, shuffle_data
 from base import ModelBase
 
 from sklearn.metrics import accuracy_score
+
+hallmark = pd.read_csv('hallmark.csv')
+
 
 ##[(320, 1387), (1387, 1066), (1066, 447), (447, 147), (147, 26), (26, 1)]
 
@@ -69,6 +76,22 @@ class CITRUS(ModelBase):
         self.analysis_mode = False
         self.mask = np.load('hallmark_mask.npy', allow_pickle=True)
         self.verbose = True
+        
+        self.wt = pd.read_parquet('wt.parquet')
+        self.sm_mut = pd.read_parquet('sm_mut.parquet')
+        
+        f = gzip.GzipFile('sga.npy.gz', 'r')
+        self.sga = np.load(f)
+        f.close()
+
+        g = gzip.GzipFile('can.npy.gz', 'r')
+        self.can = np.load(g)
+        g.close()
+        
+        xdf = pd.read_parquet('xdf.parquet')
+        self.idx = xdf[xdf.id.isin(self.wt.index)].idx.values
+        self.idy = xdf[xdf.id.isin(self.sm_mut.index)].idx.values
+        
         # torch.manual_seed(0)
 
 
@@ -101,6 +124,9 @@ class CITRUS(ModelBase):
         self.layer_dropout_1 = nn.Dropout(p=self.dropout_rate)
 
         self.layer_dropout_2 = nn.Dropout(p=self.dropout_rate)
+        
+        self.layer_dropout_3 = nn.Dropout(p=0.5)
+        
 
         self.layer_w_1 = nn.Linear(
             in_features=self.embedding_size, out_features=self.mask.shape[0], bias=True
@@ -214,6 +240,7 @@ class CITRUS(ModelBase):
             return hid_tmr_relu
         
         x = self.pathways(self.activation(hid_tmr_relu))
+        x = self.layer_dropout_3(x)
         tf = self.bnorm_tf(x)
         
 
@@ -228,6 +255,32 @@ class CITRUS(ModelBase):
             return preds
         
         return preds, tf, hid_tmr, emb_tmr, emb_sga, attn_wt
+
+    def my_pvals(self):
+        self.eval()
+        X = torch.from_numpy(self.sga)[self.idx].to(self.device)
+        C = torch.from_numpy(self.can)[self.idx].to(self.device)
+        r = self.forward(X, C, pathways=True).data.cpu().numpy()
+
+        X = torch.from_numpy(self.sga)[self.idy].to(self.device)
+        C = torch.from_numpy(self.can[self.idy]).to(self.device)
+        s = self.forward(X, C, pathways=True).data.cpu().numpy()
+        self.train()
+        
+        p_predicted = pd.DataFrame(ttest_ind(r, s).pvalue, 
+        index=hallmark.Description, 
+        columns=['pvalue']).sort_values(by='pvalue', ascending=True).loc[hallmark.Description].pvalue.values
+
+
+        p_exp = hallmark['pvalue'].values
+
+        # p_predicted = -1*np.log10(p_predicted)
+        # p_exp = -1*np.log10(p_exp)
+        pval_corr = spearmanr(p_predicted, p_exp).correlation
+        self.pval_corr = pval_corr
+        
+        return pval_corr
+
 
     def fit(
         self,
@@ -263,6 +316,9 @@ class CITRUS(ModelBase):
             es = EarlyStopping(patience=self.patience)
         constraints = weightConstraint()
 
+
+
+
         for iter_train in range(0, max_iter * len(train_set["can"]), batch_size):
 
             batch_set = get_minibatch(
@@ -287,11 +343,19 @@ class CITRUS(ModelBase):
 
             if (iter_train % len(train_set["can"])) == 0:
                 train_set = shuffle_data(train_set)
+                
+            pval_corr = self.my_pvals()
+            
+            if pval_corr > 0.30:
+                break
+                
             if test_inc_size and (iter_train % test_inc_size == 0):
                 labels, preds, _, _, _, _, _ = self.test(test_set, test_batch_size)
                 corr_spearman, corr_pearson = evaluate(
                     labels, preds, epsilon=self.epsilon
                 )
+                
+                
                 if corr_spearman is None:
                     corr_spearman = 0
                     
@@ -300,18 +364,19 @@ class CITRUS(ModelBase):
                 
                 if self.verbose:  
                     print(
-                        "[%d,%d], spearman correlation: %.6f, pearson correlation: %.6f"
+                        "[%d,%d], spearman: %.6f, pval_corr: %.6f"
                         % (
                             iter_train // len(train_set["can"]),
                             iter_train % len(train_set["can"]),
                             corr_spearman,
-                            corr_pearson,
+                            pval_corr,
                         )
                     )
-                if self.patience != 0:
+                if self.patience != 0:                
                     if es.step(corr_pearson) and iter_train > 180 * test_inc_size:
-
-                        # self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
+                        break
+                    
+                    if pval_corr > 0.35:
                         break
         # self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
 

@@ -18,6 +18,7 @@ import numpy as np
 import warnings 
 warnings.filterwarnings("ignore") ##This is bad but temporary
 
+import yaml
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -26,175 +27,14 @@ if device == 'cuda':
 else:
     device_name = 'cpu'
 
-
+with open('args.yaml', 'r') as f:
+    args_dict = yaml.safe_load(f)
+    
+    
 parser = argparse.ArgumentParser()
+args = argparse.Namespace(**args_dict)
+args.tf_gene = np.load('tf_gene.npy')
 
-parser.add_argument(
-    "--input_dir", 
-    help="directory of input files", 
-    type=str, 
-    default="./data"
-)
-parser.add_argument(
-    "--output_dir",
-    help="directory of output files",
-    type=str,
-    default="./output",
-)
-parser.add_argument(
-    "--embedding_size",
-    help="embedding dimension of genes and tumors",
-    type=int,
-    default=512,
-)
-parser.add_argument(
-    "--hidden_size", 
-    help="hidden layer dimension of MLP decoder", 
-    type=int, 
-    default=400
-)
-parser.add_argument(
-    "--attention_size", 
-    help="size of attention parameter beta_j", 
-    type=int, 
-    default=256
-)
-parser.add_argument(
-    "--attention_head", 
-    help="number of attention heads", 
-    type=int, 
-    default=8
-)
-parser.add_argument(
-    "--learning_rate", 
-    help="learning rate for Adam", 
-    type=float, 
-    default=1e-3
-)
-parser.add_argument(
-    "--max_iter", 
-    help="maximum number of training iterations", 
-    type=int, 
-    default=75
-)
-parser.add_argument(
-    "--max_fscore",
-    help="Max F1 score to early stop model from training",
-    type=float,
-    default=0.7
-)
-parser.add_argument(
-    "--batch_size", 
-    help="training batch size", 
-    type=int, 
-    default=100
-)
-parser.add_argument(
-    "--test_batch_size", 
-    help="test batch size", 
-    type=int, 
-    default=100
-)
-parser.add_argument(
-    "--test_inc_size",
-    help="increment interval size between log outputs",
-    type=int,
-    default=256
-)
-parser.add_argument(
-    "--dropout_rate", 
-    help="dropout rate", 
-    type=float, 
-    default=0.2
-)
-parser.add_argument(
-    "--input_dropout_rate", 
-    help="dropout rate", 
-    type=float, 
-    default=0.2
-)
-parser.add_argument(
-    "--weight_decay", 
-    help="coefficient of l2 regularizer", 
-    type=float, 
-    default=1e-5
-)
-parser.add_argument(
-    "--activation",
-    help="activation function used in hidden layer",
-    type=str,
-    default="tanh",
-)
-parser.add_argument(
-    "--patience", 
-    help="earlystopping patience", 
-    type=int, 
-    default=10
-)
-parser.add_argument(
-    "--mask01",
-    help="wether to ignore the float value and convert mask to 01",
-    type=bool_ext,
-    default=True,
-)
-parser.add_argument(
-    "--gep_normalization", 
-    help="how to normalize gep", 
-    type=str, 
-    default="scaleRow"
-)
-parser.add_argument(
-    "--attention",
-    help="whether to use attention mechanism or not",
-    type=bool_ext,
-    default=True,
-)
-parser.add_argument(
-    "--cancer_type",
-    help="whether to use cancer type or not",
-    type=bool_ext,
-    default=True,
-)
-parser.add_argument(
-    "--train_model",
-    help="whether to train model or load model",
-    type=bool_ext,
-    default=True,
-)
-parser.add_argument(
-    "--dataset_name",
-    help="the dataset name loaded and saved",
-    type=str,
-    default="dataset_CITRUS",
-)
-parser.add_argument(
-    "--tag", 
-    help="a tag passed from command line", 
-    type=str, 
-    default=""
-)
-parser.add_argument(
-    "--run_count", 
-    help="the count for training", 
-    type=str, 
-    default="1"
-)
-
-parser.add_argument(
-    "--label", 
-    help="model label", 
-    type=str, 
-    default="untitled"
-)
-
-parser.add_argument(
-    "--ppi", 
-    help="", 
-    type=int, 
-    default=0
-)
-
-args = parser.parse_args()
 
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
@@ -219,17 +59,17 @@ args.gep_size = dataset["gep"].shape[1]  # GEP output dimension
 args.num_max_sga = dataset["sga"].shape[1]  # maximum number of SGAs in a tumor
 
 args.hidden_size = dataset["tf_gene"].shape[0]
-print("Hyperparameters:")
-print(args)
-args.tf_gene = dataset["tf_gene"]
+# print("Hyperparameters:")
+# print(args)
+# args.tf_gene = dataset["tf_gene"]
 
 
 # masks = np.load('./pnet_prostate_paper/train/maps.npy', allow_pickle=True)
 
-
 model = CITRUS(args)  # initialize CITRUS model
 model.build(device=device)  # build CITRUS model
 model.to(device)
+
 
 print(model)
 
