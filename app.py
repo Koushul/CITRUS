@@ -1,6 +1,8 @@
 from pathlib import Path
 import pandas as pd
 import streamlit as st
+import plotly.express as px
+from scipy.stats import spearmanr
 
 hallmark = pd.read_csv('hallmark.csv')
 
@@ -64,7 +66,7 @@ saved_models = [i.name for i in Path('./output').glob('*.pth')]
 
 st.image('./CITRUS.png')
 
-model_choice = st.selectbox(f'Choose model', saved_models)
+# model_choice = st.selectbox(f'Choose model', saved_models)
 
 # with st.spinner('Loading PyTorch model'):
 #     model = CITRUS(args)  # initialize CITRUS model
@@ -87,3 +89,15 @@ st.markdown('#### MCF10A Data')
 st.caption('Sorted by pvalue')
 st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
 
+p_predicted = np.load('p_predicted.npy')
+p_exp = np.load('p_exp.npy')
+results = pd.DataFrame([p_exp, p_predicted]).T
+results.columns = ['-log10 (MCF10A pvalue)', '-log10 (CITRUS+ pvalue)']
+results.index = hallmark.Description
+
+with st.spinner('Plotting pvalues...'):
+    fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
+        x='-log10 (MCF10A pvalue)', 
+        y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
+    
+    st.plotly_chart(fig)

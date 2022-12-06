@@ -94,4 +94,11 @@ class ModelBase(nn.Module):
         """Save learnable parameters of the trained model."""
 
         print("Saving model to " + path)
-        torch.save(self.state_dict(), path)
+        torch.save(
+            {
+                'state_dict': self.state_dict(),
+                'performance': self.performance,
+                'pval_corr': self.pval_corr,
+                'cancers': self.cancers,
+                'idd': self.idd
+            }, path)

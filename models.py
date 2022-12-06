@@ -91,6 +91,10 @@ class CITRUS(ModelBase):
         xdf = pd.read_parquet('xdf.parquet')
         self.idx = xdf[xdf.id.isin(self.wt.index)].idx.values
         self.idy = xdf[xdf.id.isin(self.sm_mut.index)].idx.values
+
+        self.cancers = None
+        self.performance = None
+        self.idd = None
         
         # torch.manual_seed(0)
 
