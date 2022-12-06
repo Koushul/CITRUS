@@ -96,7 +96,12 @@ results.columns = ['-log10 (MCF10A pvalue)', '-log10 (CITRUS+ pvalue)']
 results.index = hallmark.Description
 results['desc'] = results.index
 
+p_predicted = -np.log(p_predicted) 
+p_exp = -np.log(p_exp) 
+
 with st.spinner('Plotting pvalues...'):
+    st.markdown('#### CITRUS+ versus MCF10A data')
+    st.caption('Hover on data to see pathway names')
     fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
         x='-log10 (MCF10A pvalue)', 
         y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
