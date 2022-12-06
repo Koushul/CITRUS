@@ -7,4 +7,4 @@ numpy==1.21.6
 # statsmodels==0.13.2
 torch==1.11.0
 # tqdm==4.64.0
-plotly
+# plotly
