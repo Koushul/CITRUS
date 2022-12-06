@@ -91,13 +91,16 @@ st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
 
 p_predicted = np.load('p_predicted.npy')
 p_exp = np.load('p_exp.npy')
+
+p_predicted = -np.log(p_predicted) 
+p_exp = -np.log(p_exp) 
+
 results = pd.DataFrame([p_exp, p_predicted]).T
+
 results.columns = ['-log10 (MCF10A pvalue)', '-log10 (CITRUS+ pvalue)']
 results.index = hallmark.Description
 results['desc'] = results.index
 
-p_predicted = -np.log(p_predicted) 
-p_exp = -np.log(p_exp) 
 
 with st.spinner('Plotting pvalues...'):
     st.markdown('#### CITRUS+ versus MCF10A data')
