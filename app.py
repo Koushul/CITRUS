@@ -94,6 +94,7 @@ p_exp = np.load('p_exp.npy')
 results = pd.DataFrame([p_exp, p_predicted]).T
 results.columns = ['-log10 (MCF10A pvalue)', '-log10 (CITRUS+ pvalue)']
 results.index = hallmark.Description
+results['desc'] = results.index
 
 with st.spinner('Plotting pvalues...'):
     fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
