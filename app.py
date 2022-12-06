@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 
-st.markdown('### CITRUS+ 🍋')
+st.markdown('## 🍋 CITRUS+ ')
 
 
 # from utils import Data, get_ppi_edge_list
