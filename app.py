@@ -35,9 +35,7 @@ st.markdown('## 🍋 CITRUS+ ')
 
 import os
 import argparse
-from utils import bool_ext, load_dataset, split_dataset, evaluate, checkCorrelations
 from models import CITRUS
-import pickle
 import torch
 import numpy as np
 import pandas as pd
