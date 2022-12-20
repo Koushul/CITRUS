@@ -62,7 +62,6 @@ args.tf_gene = np.load('tf_gene.npy')
 
 
 saved_models = [i.name for i in Path('./output').glob('*.pth')]
-st.write(saved_models)
 
 st.image('./CITRUS.png')
 args.tf_gene = []
@@ -159,6 +158,6 @@ with st.spinner('Plotting pvalues...'):
     st.caption('Hover on data to see pathway names')
     fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
         x='-log10 (MCF10A pvalue)', 
-        y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
+        y='-log10 (CITRUS+ pvalue)', hover_data=['desc'], color='red')
     
     st.plotly_chart(fig)
