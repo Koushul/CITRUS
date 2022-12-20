@@ -88,9 +88,9 @@ st.image('./CITRUS.png')
 
 
 
-st.markdown('#### MCF10A Data')
-st.caption('Sorted by pvalue')
-st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
+# st.markdown('#### MCF10A Data')
+# st.caption('Sorted by pvalue')
+# st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
 
 
 st.markdown(f'#### Performance')
