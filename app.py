@@ -94,7 +94,7 @@ st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
 
 
 st.markdown(f'#### Performance')
-st.dataframe(pd.read_csv('perf.csv'))
+st.dataframe(pd.read_csv('perf.csv').set_index('Unnamed: 0'))
 
 p_predicted = np.load('p_predicted.npy')
 p_exp = np.load('p_exp.npy')
