@@ -93,7 +93,7 @@ st.caption('Sorted by pvalue')
 st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
 
 
-st.markdown(f'#### Performance (ensemble={len(saved_models)})')
+st.markdown(f'#### Performance')
 st.dataframe(pd.read_csv('perf.csv'))
 
 p_predicted = np.load('p_predicted.npy')
