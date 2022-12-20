@@ -58,6 +58,7 @@ with open('args.yaml', 'r') as f:
 
 parser = argparse.ArgumentParser()
 args = argparse.Namespace(**args_dict)
+st.code(args)
 args.tf_gene = np.load('tf_gene.npy')
 
 
