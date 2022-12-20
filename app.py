@@ -85,9 +85,16 @@ st.image('./CITRUS.png')
 # from scipy.stats import ttest_ind
 
 
+
+
+
 st.markdown('#### MCF10A Data')
 st.caption('Sorted by pvalue')
 st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
+
+
+st.markdown(f'#### Performance (ensemble={len(saved_models)})')
+st.dataframe(pd.read_csv('perf.csv'))
 
 p_predicted = np.load('p_predicted.npy')
 p_exp = np.load('p_exp.npy')
