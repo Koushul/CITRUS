@@ -65,7 +65,7 @@ saved_models = [i.name for i in Path('./output').glob('*.pth')]
 
 
 st.image('./CITRUS.png')
-st.code(dict(args))
+st.code(vars(args))
 
 
 # model_choice = st.selectbox(f'Choose model', saved_models)
