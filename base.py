@@ -84,11 +84,14 @@ class ModelBase(nn.Module):
         """Test the model using test set."""
         raise NotImplementedError
 
-    def load_model(self, path="data/trained_model.pth"):
+    def load_model(self, path, device):
         """Load trained parameters of the model."""
-
-        print("Loading model from " + path)
-        self.load_state_dict(torch.load(path))
+        checkpoint = torch.load(path, map_location=torch.device('cpu'))
+        self.load_state_dict(checkpoint['state_dict'])
+                
+        self.performance = checkpoint['performance']
+        self.pval_corr = checkpoint['pval_corr']
+        self.cancers = checkpoint['cancers']
 
     def save_model(self, path="data/trained_model.pth"):
         """Save learnable parameters of the trained model."""
@@ -100,5 +103,7 @@ class ModelBase(nn.Module):
                 'performance': self.performance,
                 'pval_corr': self.pval_corr,
                 'cancers': self.cancers,
-                'idd': self.idd
+                'idd': self.idd,
+                'iter_corr': self.iter_corr,
+                'uuid': self.uuid
             }, path)

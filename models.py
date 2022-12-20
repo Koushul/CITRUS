@@ -20,7 +20,7 @@ import pandas as pd
 from scipy.stats import ttest_ind
 import gzip
 from scipy.stats import spearmanr
-
+import pickle
 
 
 from utils import get_minibatch, evaluate, EarlyStopping, shuffle_data
@@ -31,20 +31,52 @@ from sklearn.metrics import accuracy_score
 
 hallmark = pd.read_csv('hallmark.csv')
 
+from utils import Data
 
-##[(320, 1387), (1387, 1066), (1066, 447), (447, 147), (147, 26), (26, 1)]
+data_csv = Data(
+    fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
+    fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
+    fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
+    fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
+)
 
-# from utils import Data
+data = pickle.load( open("/ihome/hosmanbeyoglu/kor11/tools/CITRUS/data/dataset_CITRUS.pkl", "rb"))
 
-# data = Data(
-#     fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
-#     fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
-#     fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
-#     fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
-# )
 
-# import warnings 
-# warnings.filterwarnings("ignore")
+df = pd.DataFrame(np.column_stack([data['tmr'], data['can']]), columns=['tmr', 'cancer'])
+df['cancer'] = df['cancer'].astype(int).replace(data['idx2can'])
+xdf = pd.read_parquet('xdf.parquet')
+
+def split_mutants(cancer, gene):    
+    _sm = f'SM_{gene}'
+    _scna = f'SCNA_{gene}'
+    
+    dframe = data_csv.sga_sga.loc[df[df.cancer==cancer].tmr]
+    
+    wt = dframe[(dframe[_sm] == 0) & (dframe[_scna] == 0)]
+    sm = dframe[(dframe[_sm] == 1) & (dframe[_scna] == 0)]
+    # scna = dframe[(dframe[_sm] == 0) & (dframe[_scna] == 1)]
+    # sm_scna = dframe[(dframe[_sm] == 1) & (dframe[_scna] == 1)]
+    idx = xdf[xdf.id.isin(wt.index)].idx.values
+    idy = xdf[xdf.id.isin(sm.index)].idx.values
+
+    return idx, idy
+    
+
+
+idx, idy = split_mutants('BRCA', 'PIK3CA')
+
+
+# wt = pd.read_parquet('wt.parquet')
+# sm_mut = pd.read_parquet('sm_mut.parquet')
+
+f = gzip.GzipFile('sga.npy.gz', 'r')
+sga = np.load(f)
+f.close()
+
+g = gzip.GzipFile('can.npy.gz', 'r')
+can = np.load(g)
+g.close()
 
 
 class weightConstraint(object):
@@ -77,24 +109,9 @@ class CITRUS(ModelBase):
         self.mask = np.load('hallmark_mask.npy', allow_pickle=True)
         self.verbose = True
         
-        self.wt = pd.read_parquet('wt.parquet')
-        self.sm_mut = pd.read_parquet('sm_mut.parquet')
-        
-        f = gzip.GzipFile('sga.npy.gz', 'r')
-        self.sga = np.load(f)
-        f.close()
-
-        g = gzip.GzipFile('can.npy.gz', 'r')
-        self.can = np.load(g)
-        g.close()
-        
-        xdf = pd.read_parquet('xdf.parquet')
-        self.idx = xdf[xdf.id.isin(self.wt.index)].idx.values
-        self.idy = xdf[xdf.id.isin(self.sm_mut.index)].idx.values
-
-        self.cancers = None
         self.performance = None
         self.idd = None
+        self.iter_corr = []
         
         # torch.manual_seed(0)
 
@@ -140,18 +157,17 @@ class CITRUS(ModelBase):
         
         
         self.pathways = nn.Linear(self.mask.shape[0], self.mask.shape[1], bias=True)
+        
         mask = torch.from_numpy(self.mask).float().to(device)
         self.pathways.weight.data = self.pathways.weight.data * mask.T.cpu()
         self.pathways.weight.register_hook(lambda grad: grad.mul_(mask.T))
         
         
         self.bnorm_tf = nn.BatchNorm1d(num_features=self.mask.shape[1], track_running_stats=True)
-        
+          
         self.layer_w_2 = nn.Linear(
             in_features=self.tf_gene.shape[0], out_features=self.gep_size, bias=True
         )
-        
-        
         
         # self.tf_gene = np.where(self.tf_gene>0, 1, 0)
         mask_value = torch.FloatTensor(self.tf_gene.T).to(self.device)
@@ -262,14 +278,16 @@ class CITRUS(ModelBase):
 
     def my_pvals(self):
         self.eval()
-        X = torch.from_numpy(self.sga)[self.idx].to(self.device)
-        C = torch.from_numpy(self.can)[self.idx].to(self.device)
+        X = torch.from_numpy(sga)[idx].to(self.device)
+        C = torch.from_numpy(can)[idx].to(self.device)
         r = self.forward(X, C, pathways=True).data.cpu().numpy()
 
-        X = torch.from_numpy(self.sga)[self.idy].to(self.device)
-        C = torch.from_numpy(self.can[self.idy]).to(self.device)
+        X = torch.from_numpy(sga)[idy].to(self.device)
+        C = torch.from_numpy(can[idy]).to(self.device)
         s = self.forward(X, C, pathways=True).data.cpu().numpy()
         self.train()
+        
+        del X, C
         
         p_predicted = pd.DataFrame(ttest_ind(r, s).pvalue, 
         index=hallmark.Description, 
@@ -350,7 +368,7 @@ class CITRUS(ModelBase):
                 
             pval_corr = self.my_pvals()
             
-            if pval_corr > 0.30:
+            if pval_corr > 0.3 and (iter_train // len(train_set["can"])) > 15:
                 break
                 
             if test_inc_size and (iter_train % test_inc_size == 0):
@@ -366,6 +384,9 @@ class CITRUS(ModelBase):
                 if corr_pearson is None:
                     corr_pearson = 0
                 
+                
+                self.iter_corr.append(corr_spearman)
+                
                 if self.verbose:  
                     print(
                         "[%d,%d], spearman: %.6f, pval_corr: %.6f"
@@ -380,9 +401,6 @@ class CITRUS(ModelBase):
                     if es.step(corr_pearson) and iter_train > 180 * test_inc_size:
                         break
                     
-                    if pval_corr > 0.35:
-                        break
-        # self.save_model(os.path.join(self.output_dir, "trained_model.pth"))
 
     def test(self, test_set, test_batch_size, **kwargs):
         """Run forward process over the given whole test set.

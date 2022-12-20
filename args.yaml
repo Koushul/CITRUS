@@ -19,7 +19,7 @@ mask01: true
 max_fscore: 0.7
 num_max_sga: 1396
 output_dir: ./output
-patience: 10
+patience: 100
 ppi: 0
 run_count: '1'
 sga_size: 11998

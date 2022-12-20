@@ -30,7 +30,6 @@ warnings.filterwarnings("ignore")
 
 # ray.init()
 
-# The number of sets of random hyperparameters to try.
 num_evaluations = 3
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -150,7 +149,8 @@ def fractured_universe(args, idd):
     model.performance = np.column_stack([_corrs, _mses])
     model.cancers = o
     
-    model.save_model(os.path.join(args.output_dir, f'model_{model.idd}.pth'))
+    if model.pval_corr > 0.3:
+        model.save_model(os.path.join(args.output_dir, f'model_{model.uuid}.pth'))
     
     
     labels, preds, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr = model.test(
@@ -189,7 +189,7 @@ def fractured_universe(args, idd):
 remaining_ids = []
 hyperparameters_mapping = {}
 
-for i in [4, 12]:
+for i in range(num_evaluations):
     hyperparameters = generate_hyperparameters()
     accuracy_id = fractured_universe.remote(hyperparameters, i)
     remaining_ids.append(accuracy_id)
@@ -210,114 +210,3 @@ while remaining_ids:
 
 exit()
 
-import pandas as pd
-from scipy.stats import ttest_ind as ttest
-
-def generateTFactivity(tf, idx2can, tmr, cans, tf_name):
-    # generate the TF activity matrix
-    df_TF = pd.DataFrame(data = tf, columns = tf_name, index = tmr)
-    can_names = [idx2can[idx] for idx in cans]
-    df_TF["cancer_type"] = can_names
-    return(df_TF)
-
-
-run = list()
-
-data = pickle.load( open("/ihome/hosmanbeyoglu/kor11/tools/CITRUS/data/dataset_CITRUS.pkl", "rb"))
-for i in range(num_evaluations):
-    dataset = pickle.load(open("/ihome/hosmanbeyoglu/kor11/tools/CITRUS/output/output_{}.pkl".format(i), "rb"))
-    # dataset = pickle.load( open(os.path.join(args.output_dir,"outputx_dataset_CITRUS_{}mask33.pkl".format(i)), "rb"), )
-    run.append(dataset) 
-
-tfs = list()
-for i in range(len(run)):
-    tfs.append(run[i]["hid_tmr"])
-
-## genereate ensemble tf activity matrix
-tf_ensemble = 0
-for i in range(len(run)):
-    tf_ensemble += tfs[i]
-    
-tf_ensemble = tf_ensemble/len(run)
-
-df_tf = generateTFactivity(tf_ensemble, data["idx2can"],data["tmr"], data["can"], data["tf_name"])
-
-
-
-pths = list()
-for i in range(len(run)):
-    pths.append(run[i]["pathways"])
-    
-## genereate ensemble tf activity matrix
-pths_ensemble = 0
-for i in range(len(run)):
-    pths_ensemble += pths[i]
-    
-pths_ensemble = pths_ensemble/len(pths)
-
-def generateTFactivity(tf, idx2can, tmr, cans, tf_name):
-    # generate the TF activity matrix
-    df_TF = pd.DataFrame(data = tf, columns = tf_name, index = tmr)
-    can_names = [idx2can[idx] for idx in cans]
-    df_TF["cancer_type"] = can_names
-    return(df_TF)
-
-args = generate_hyperparameters()
-dataset, dataset_test = load_dataset(
-    input_dir=args.input_dir,
-    mask01=args.mask01,
-    dataset_name=args.dataset_name,
-    gep_normalization=args.gep_normalization)
-
-train_set, test_set = split_dataset(dataset, ratio=0.66)
-
-args.can_size = dataset["can"].max()  # cancer type dimension
-args.sga_size = dataset["sga"].max()  # SGA dimension
-args.gep_size = dataset["gep"].shape[1]  # GEP output dimension
-args.num_max_sga = dataset["sga"].shape[1]  # maximum number of SGAs in a tumor
-
-args.hidden_size = dataset["tf_gene"].shape[0]
-args.tf_gene = dataset["tf_gene"]
-    
-    
-model = CITRUS(args)
-pth_tf = generateTFactivity(pths_ensemble, data["idx2can"],data["tmr"], data["can"], model.local2tf.index)
-
-
-from utils import Data
-
-data_csv = Data(
-    fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
-    fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
-    fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
-    fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
-)
-
-df = pd.DataFrame(np.column_stack([data['tmr'], data['can']]), columns=['tmr', 'cancer'])
-df['cancer'] = df['cancer'].astype(int).replace(data['idx2can'])
-
-def split_mutants(cancer, gene):    
-    _sm = f'SM_{gene}'
-    _scna = f'SCNA_{gene}'
-    
-    dframe = data_csv.sga_sga.loc[df[df.cancer==cancer].tmr]
-    
-    wt = dframe[(dframe[_sm] == 0) & (dframe[_scna] == 0)]
-    sm = dframe[(dframe[_sm] == 1) & (dframe[_scna] == 0)]
-    scna = dframe[(dframe[_sm] == 0) & (dframe[_scna] == 1)]
-    sm_scna = dframe[(dframe[_sm] == 1) & (dframe[_scna] == 1)]
-    
-    return wt.index.values, sm.index.values, scna.index.values, sm_scna.index.values
-
-pathways = model.local2tf.index
-wt, sm, _, _ = split_mutants('BRCA', 'PIK3CA')
-a = pth_tf.loc[wt].values[:, :len(pathways)]
-b = pth_tf.loc[sm].values[:, :len(pathways)]
-print(a.shape, b.shape)
-
-
-r = pd.DataFrame([ttest(a[:, j], b[:, j]).pvalue for j in range(len(pathways))], 
-        index=pathways).sort_values(by=0)
-r.columns = ['pvalue']
-# r.loc['PI3K/AKT Signaling in Cancer']
-print(r.sort_values(by='pvalue')[:25])
