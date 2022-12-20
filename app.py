@@ -58,7 +58,6 @@ with open('args.yaml', 'r') as f:
 
 parser = argparse.ArgumentParser()
 args = argparse.Namespace(**args_dict)
-st.code(args)
 args.tf_gene = np.load('tf_gene.npy')
 
 
@@ -66,6 +65,8 @@ saved_models = [i.name for i in Path('./output').glob('*.pth')]
 
 
 st.image('./CITRUS.png')
+st.code(dict(args))
+
 
 # model_choice = st.selectbox(f'Choose model', saved_models)
 
