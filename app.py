@@ -67,6 +67,21 @@ saved_models = [i.name for i in Path('./output').glob('*.pth')]
 st.image('./CITRUS.png')
 args.tf_gene = []
 st.write(vars(args))
+st.code("""CITRUS(
+  (layer_sga_emb): Embedding(11999, 256, padding_idx=0)
+  (layer_can_emb): Embedding(18, 256, padding_idx=0)
+  (layer_w_0): Linear(in_features=256, out_features=256, bias=True)
+  (layer_beta): Linear(in_features=256, out_features=16, bias=True)
+  (layer_dropout_1): Dropout(p=0.2, inplace=False)
+  (layer_dropout_2): Dropout(p=0.2, inplace=False)
+  (layer_dropout_3): Dropout(p=0.5, inplace=False)
+  (layer_w_1): Linear(in_features=256, out_features=50, bias=True)
+  (bnorm_pathways): BatchNorm1d(50, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (pathways): Linear(in_features=50, out_features=320, bias=True)
+  (bnorm_tf): BatchNorm1d(320, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (layer_w_2): Linear(in_features=320, out_features=5541, bias=True)
+  (loss): MSELoss()
+)""")
 
 
 # model_choice = st.selectbox(f'Choose model', saved_models)
