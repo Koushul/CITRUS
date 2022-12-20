@@ -66,7 +66,7 @@ saved_models = [i.name for i in Path('./output').glob('*.pth')]
 
 st.image('./CITRUS.png')
 args.tf_gene = []
-st.code(vars(args))
+st.write(vars(args))
 
 
 # model_choice = st.selectbox(f'Choose model', saved_models)
