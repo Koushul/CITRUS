@@ -66,7 +66,8 @@ saved_models = [i.name for i in Path('./output').glob('*.pth')]
 
 st.image('./CITRUS.png')
 args.tf_gene = []
-st.write(vars(args))
+with st.expander('View all hyperparameters'):
+    st.write(vars(args))
 st.code("""CITRUS(
   (layer_sga_emb): Embedding(11999, 256, padding_idx=0)
   (layer_can_emb): Embedding(18, 256, padding_idx=0)
