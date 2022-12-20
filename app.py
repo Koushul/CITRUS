@@ -110,7 +110,30 @@ results['desc'] = results.index
 
 
 with st.spinner('Plotting pvalues...'):
-    st.markdown('#### CITRUS+ versus MCF10A data')
+    st.markdown('#### CITRUS+ versus MCF10A_hallmark_PI3K_Activation')
+    st.caption('Hover on data to see pathway names')
+    fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
+        x='-log10 (MCF10A pvalue)', 
+        y='-log10 (CITRUS+ pvalue)', hover_data=['desc'])
+    
+    st.plotly_chart(fig)
+    
+    
+    
+p_predicted = np.load('p_predicted2.npy')
+p_exp = np.load('p_exp2.npy')
+
+p_predicted = -np.log(p_predicted) 
+p_exp = -np.log(p_exp) 
+
+results = pd.DataFrame([p_exp, p_predicted]).T
+
+results.columns = ['-log10 (MCF10A pvalue)', '-log10 (CITRUS+ pvalue)']
+results.index = hallmark.Description
+results['desc'] = results.index
+    
+with st.spinner('Plotting pvalues...'):
+    st.markdown('#### CITRUS+ versus MCF10A_hallmark_PI3K_Inhibition')
     st.caption('Hover on data to see pathway names')
     fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
         x='-log10 (MCF10A pvalue)', 
