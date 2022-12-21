@@ -134,10 +134,17 @@ with c:
     st.markdown(f'#### Shuffle Across All Samples')
     st.table(pd.read_csv('perf_shuffled_across.csv').set_index('Unnamed: 0'))
 
+st.markdown('----')
+
 f, g = st.columns(2)
+
+f.title('PCA - Transcription Factors')
 f.image('./tf.JPG')
+g.title('PCA - Pathways')
 g.image('./pathway.JPG')
 
+
+st.markdown('----')
 
 
 p_predicted = np.load('p_predicted.npy')
