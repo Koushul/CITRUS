@@ -195,7 +195,10 @@ with y:
         
         st.plotly_chart(fig)
         
-        
+st.image('./NFE2L2.png')
+st.image('./TP53.png')
+st.image('./E2F1.png')  
+      
 
 st.markdown(f'#### HPV+ (n=60) vs HPV- (n=314)')
 hpv = pd.read_csv('HPV_analysis.csv')
@@ -203,9 +206,7 @@ st.table(hpv[hpv.pvalue<0.05].astype(str))
 st.table(hpv[hpv.pvalue>=0.05].astype(str))
 
 
-st.image('./NFE2L2.png')
-st.image('./TP53.png')
-st.image('./E2F1.png')
+
 
 
 # for (name, value) in hpv.values:
