@@ -158,6 +158,6 @@ with st.spinner('Plotting pvalues...'):
     st.caption('Hover on data to see pathway names')
     fig = px.scatter(results, title=f'spearmanr: {spearmanr(p_predicted, p_exp).correlation:.5f}',
         x='-log10 (MCF10A pvalue)', 
-        y='-log10 (CITRUS+ pvalue)', hover_data=['desc'], color_discrete_sequence=['red'], height = 100, width=100)
+        y='-log10 (CITRUS+ pvalue)', hover_data=['desc'], color_discrete_sequence=['red'], height = 1000, width=1000)
     
     st.plotly_chart(fig)
