@@ -138,9 +138,9 @@ st.markdown('----')
 
 f, g = st.columns(2)
 
-f.title('PCA - Transcription Factors')
+f.title('### PCA - Transcription Factors')
 f.image('./tf.JPG')
-g.title('PCA - Pathways')
+g.title('### PCA - Pathways')
 g.image('./pathway.JPG')
 
 
