@@ -113,16 +113,19 @@ st.code("""CITRUS(
 # st.caption('Sorted by pvalue')
 # st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
 
+a, b, c = st.columns(3)
 
-st.markdown(f'#### Mean Predicted Expression')
-st.table(pd.read_csv('perf.csv').set_index('Unnamed: 0'))
+with a:
+    st.markdown(f'#### Mean Predicted Expression')
+    st.table(pd.read_csv('perf.csv').set_index('Unnamed: 0'))
 
+with b:
+    st.markdown(f'#### Random Sample Within Cancer Type')
+    st.table(pd.read_csv('perf_shuffled_within.csv').set_index('Unnamed: 0'))
 
-st.markdown(f'#### Random Sample Within Cancer Type')
-st.table(pd.read_csv('perf_shuffled_within.csv').set_index('Unnamed: 0'))
-
-st.markdown(f'#### Random Sample Across All Samples')
-st.table(pd.read_csv('perf.csv').set_index('Unnamed: 0'))
+with c:
+    st.markdown(f'#### Random Sample Across All Samples')
+    st.table(pd.read_csv('perf.csv').set_index('Unnamed: 0'))
 
 p_predicted = np.load('p_predicted.npy')
 p_exp = np.load('p_exp.npy')
