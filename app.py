@@ -194,11 +194,15 @@ with y:
             y='-log10 (CITRUS+ pvalue)', hover_data=['desc'], color_discrete_sequence=['red'], height = 600, width=600)
         
         st.plotly_chart(fig)
-        
+
+st.markdown('----')
+
+st.markdown('#### Inferred activities as a function of mutational status')        
 st.image('./NFE2L2.png')
 st.image('./TP53.png')
 st.image('./E2F1.png')  
       
+st.markdown('----')
 
 st.markdown(f'#### HPV+ (n=60) vs HPV- (n=314)')
 hpv = pd.read_csv('HPV_analysis.csv')
