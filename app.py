@@ -134,6 +134,12 @@ with c:
     st.markdown(f'#### Shuffle Across All Samples')
     st.table(pd.read_csv('perf_shuffled_across.csv').set_index('Unnamed: 0'))
 
+f, g = st.columns(2)
+f.image('./tf.JPG')
+g.image('./pathway.JPG')
+
+
+
 p_predicted = np.load('p_predicted.npy')
 p_exp = np.load('p_exp.npy')
 
