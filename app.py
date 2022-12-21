@@ -183,6 +183,15 @@ with y:
         st.plotly_chart(fig)
         
         
+from statsmodels.stats.multitest import fdrcorrection
 
 st.markdown(f'#### HPV+ (n=60) vs HPV- (n=314)')
-st.table(pd.read_csv('HPV_analysis.csv').set_index('Unnamed: 0'))
+hpv = pd.read_csv('HPV_analysis.csv')
+hpv.columns = ['Description', 'FDR']
+hpv.FDR = fdrcorrection(hpv.FDR)
+st.table(hpv[hpv.FDR<0.05].astype(str))
+st.table(hpv[hpv.FDR>=0.05].astype(str))
+
+
+# for (name, value) in hpv.values:
+#     st.metric(name, value)
