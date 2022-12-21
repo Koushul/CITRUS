@@ -63,17 +63,16 @@ args.tf_gene = np.load('tf_gene.npy')
 
 saved_models = [i.name for i in Path('./output').glob('*.pth')]
 
-st.code(saved_models)
 
-del saved_models
 
 st.image('./CITRUS.png')
 args.tf_gene = []
 with st.expander('View all hyperparameters'):
     st.write(vars(args))
     
-st.title(f'Models in ensemble: {10}')    
-
+st.title(f'Models in ensemble: {len(saved_models)}')    
+st.write(saved_models)
+del saved_models
 st.code("""CITRUS(
   (layer_sga_emb): Embedding(11999, 256, padding_idx=0)
   (layer_can_emb): Embedding(18, 256, padding_idx=0)
