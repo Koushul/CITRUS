@@ -73,6 +73,7 @@ with st.expander('View all hyperparameters'):
 st.title(f'Models in ensemble: {len(saved_models)}')    
 st.write(saved_models)
 del saved_models
+
 st.code("""CITRUS(
   (layer_sga_emb): Embedding(11999, 256, padding_idx=0)
   (layer_can_emb): Embedding(18, 256, padding_idx=0)
@@ -115,6 +116,7 @@ st.code("""CITRUS(
 # st.markdown('#### MCF10A Data')
 # st.caption('Sorted by pvalue')
 # st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
+del args
 
 a, b, c = st.columns(3)
 
