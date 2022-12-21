@@ -203,5 +203,10 @@ st.table(hpv[hpv.pvalue<0.05].astype(str))
 st.table(hpv[hpv.pvalue>=0.05].astype(str))
 
 
+st.image('./NFE2L2.png')
+st.image('./TP53.png')
+st.image('./E2F1.png')
+
+
 # for (name, value) in hpv.values:
 #     st.metric(name, value)
