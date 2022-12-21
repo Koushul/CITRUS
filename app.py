@@ -120,6 +120,8 @@ del args
 
 a, b, c = st.columns(3)
 
+
+
 with a:
     st.markdown(f'#### Mean Predicted Expression')
     st.table(pd.read_csv('perf.csv').set_index('Unnamed: 0'))
@@ -179,3 +181,8 @@ with y:
             y='-log10 (CITRUS+ pvalue)', hover_data=['desc'], color_discrete_sequence=['red'], height = 600, width=600)
         
         st.plotly_chart(fig)
+        
+        
+
+st.markdown(f'#### HPV+ (n=60) vs HPV- (n=314)')
+st.table(pd.read_csv('HPV_analysis.csv').set_index('Unnamed: 0'))
