@@ -114,7 +114,14 @@ st.code("""CITRUS(
 # st.dataframe(hallmark[['Description', 'pvalue', 'qvalues', 'p.adjust']])
 
 
-st.markdown(f'#### Performance')
+st.markdown(f'#### Mean Predicted Expression')
+st.table(pd.read_csv('perf.csv').set_index('Unnamed: 0'))
+
+
+st.markdown(f'#### Random Sample Within Cancer Type')
+st.table(pd.read_csv('perf_shuffled_within.csv').set_index('Unnamed: 0'))
+
+st.markdown(f'#### Random Sample Across All Samples')
 st.table(pd.read_csv('perf.csv').set_index('Unnamed: 0'))
 
 p_predicted = np.load('p_predicted.npy')
