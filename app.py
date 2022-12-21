@@ -197,7 +197,7 @@ with y:
 
 st.markdown('----')
 
-st.markdown('#### Inferred activities as a function of mutational status')        
+st.markdown('### Inferred activities as a function of mutational status')        
 st.image('./NFE2L2.png')
 st.image('./TP53.png')
 st.image('./E2F1.png')  
