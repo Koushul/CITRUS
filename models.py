@@ -368,8 +368,8 @@ class CITRUS(ModelBase):
                 
             pval_corr = self.my_pvals()
             
-            if pval_corr > 0.3 and (iter_train // len(train_set["can"])) > 15:
-                break
+            # if pval_corr > 0.3 and (iter_train // len(train_set["can"])) > 15:
+            #     break
                 
             if test_inc_size and (iter_train % test_inc_size == 0):
                 labels, preds, _, _, _, _, _ = self.test(test_set, test_batch_size)
