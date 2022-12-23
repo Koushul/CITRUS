@@ -213,12 +213,12 @@ normalization = st.selectbox('Nomalization Method', ['Log2RPKM', 'Log2TPM', 'Log
 df = pd.read_csv(f'{normalization}_38562g8s.txt', sep='\t', index_col=0)[:-5].dropna()
 st.dataframe(df)
 
-aa, bb = st.columns(2)
 st.write('Select two columns to compare')
+aa, bb = st.columns(2)
 col_a = aa.selectbox('Column A', df.columns, 4)
 col_b = bb.selectbox('Column B', df.columns, 7)
 
-
+st.write('Pathways with p-value < 0.05 are shown below')
 for desc, genes in hallmark[['Description', 'core_enrichment']].values:
     geneset = genes.split('/')
     pval = kruskal(df.reindex(geneset)[col_a].dropna().values, df.reindex(geneset)[col_b].dropna().values).pvalue
