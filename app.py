@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 from scipy.stats import spearmanr
+from scipy.stats import kruskal
 
 hallmark = pd.read_csv('hallmark.csv')
 
@@ -210,8 +211,20 @@ st.markdown(f'#### HPV cell line data')
 normalization = st.selectbox('Nomalization Method', ['Log2RPKM', 'Log2TPM', 'LogCPM'])
 
 df = pd.read_csv(f'{normalization}_38562g8s.txt', sep='\t', index_col=0)[:-5].dropna()
-
 st.dataframe(df)
+
+aa, bb = st.columns(2)
+st.write('Select two columns to compare')
+col_a = aa.selectbox('Column A', df.columns, 4)
+col_b = bb.selectbox('Column B', df.columns, 7)
+
+
+for desc, genes in hallmark[['Description', 'core_enrichment']].values:
+    geneset = genes.split('/')
+    pval = kruskal(df.reindex(geneset)[col_a].dropna().values, df.reindex(geneset)[col_b].dropna().values).pvalue
+    if pval < 0.05:
+        print(desc + ' ', pval)
+
 
 st.markdown('----')
 
