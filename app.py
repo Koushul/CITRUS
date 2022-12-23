@@ -209,7 +209,7 @@ st.markdown(f'#### HPV cell line data')
 
 normalization = st.selectbox('Nomalization Method', ['Log2RPKM', 'Log2TPM', 'LogCPM'])
 
-df = pd.read_csv(f'{normalization}_38562g8s.txt', sep='\t', index_col=0)[:-5]
+df = pd.read_csv(f'{normalization}_38562g8s.txt', sep='\t', index_col=0)[:-5].dropna()
 
 st.dataframe(df)
 
