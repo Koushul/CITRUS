@@ -212,6 +212,7 @@ normalization = st.selectbox('Nomalization Method', ['Log2RPKM', 'Log2TPM', 'Log
 # df = pd.read_csv(f'{normalization}_38562g8s.txt', sep='\t', index_col=0)[:-5]
 # st.table(df)
 
+st.dataframe(pd.read_csv('Log2RPKM_38562g8s.txt', sep='\t', index_col=0)[:-5])
 
 st.markdown('----')
 
