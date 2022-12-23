@@ -209,8 +209,11 @@ st.markdown(f'#### HPV cell line data')
 
 normalization = st.selectbox('Nomalization Method', ['Log2RPKM', 'Log2TPM', 'LogCPM'])
 
-df = pd.read_csv(f'{normalization}_38562g8s.txt', sep='\t', index_col=0)[:-5]
-st.table(df)
+# df = pd.read_csv(f'{normalization}_38562g8s.txt', sep='\t', index_col=0)[:-5]
+# st.table(df)
+
+
+st.markdown('----')
 
 st.markdown(f'#### HPV+ (n=60) vs HPV- (n=314)')
 hpv = pd.read_csv('HPV_analysis.csv')
