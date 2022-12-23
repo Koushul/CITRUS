@@ -220,6 +220,7 @@ col_a = aa.selectbox('Column A', df.columns, 0)
 col_b = bb.selectbox('Column B', df.columns, 4)
 
 st.caption('Pathways with p-value < 0.05 are shown below')
+st.caption('P-values were computed using Kruskal-Wallis H-test')
 gg = []
 for desc, genes in hallmark[['Description', 'core_enrichment']].values:
     geneset = genes.split('/')
@@ -229,7 +230,7 @@ for desc, genes in hallmark[['Description', 'core_enrichment']].values:
         gg.append(desc)
 
 
-st.markdown('###### Common pathways between Cell Line Data & CITRUS+: ')
+st.markdown('##### Common pathways between Cell Line Data & CITRUS+: ')
 st.write(set(hpv[hpv.pvalue<0.05].astype(str).Description).intersection(set(gg)))
 
 
