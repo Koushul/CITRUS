@@ -223,7 +223,7 @@ for desc, genes in hallmark[['Description', 'core_enrichment']].values:
     geneset = genes.split('/')
     pval = kruskal(df.reindex(geneset)[col_a].dropna().values, df.reindex(geneset)[col_b].dropna().values).pvalue
     if pval < 0.05:
-        print(desc + ' ', pval)
+        st.write(desc + ' ', pval)
 
 
 st.markdown('----')
