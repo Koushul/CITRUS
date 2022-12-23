@@ -207,29 +207,34 @@ st.markdown('----')
 
 
 st.markdown(f'#### HPV cell line data')
+hpv = pd.read_csv('HPV_analysis.csv')
 
 normalization = st.selectbox('Nomalization Method', ['Log2RPKM', 'Log2TPM', 'LogCPM'])
 
 df = pd.read_csv(f'{normalization}_38562g8s.txt', sep='\t', index_col=0)[:-5].dropna()
 st.dataframe(df)
 
-st.write('Select two columns to compare')
+st.caption('Select two columns to compare')
 aa, bb = st.columns(2)
-col_a = aa.selectbox('Column A', df.columns, 4)
-col_b = bb.selectbox('Column B', df.columns, 7)
+col_a = aa.selectbox('Column A', df.columns, 0)
+col_b = bb.selectbox('Column B', df.columns, 4)
 
-st.write('Pathways with p-value < 0.05 are shown below')
+st.caption('Pathways with p-value < 0.05 are shown below')
+gg = []
 for desc, genes in hallmark[['Description', 'core_enrichment']].values:
     geneset = genes.split('/')
     pval = kruskal(df.reindex(geneset)[col_a].dropna().values, df.reindex(geneset)[col_b].dropna().values).pvalue
     if pval < 0.05:
         st.write(desc + ' ', pval)
+        gg.append(desc)
+
+st.markdown('###### Number of common pathways with with CITRUS+: ')
+st.write(set(hpv[hpv.pvalue<0.05].astype(str).Description).intersection(set(gg)))
 
 
 st.markdown('----')
 
 st.markdown(f'#### HPV+ (n=60) vs HPV- (n=314)')
-hpv = pd.read_csv('HPV_analysis.csv')
 st.table(hpv[hpv.pvalue<0.05].astype(str))
 st.table(hpv[hpv.pvalue>=0.05].astype(str))
 
