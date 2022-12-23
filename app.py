@@ -228,7 +228,8 @@ for desc, genes in hallmark[['Description', 'core_enrichment']].values:
         st.write(desc + ' ', pval)
         gg.append(desc)
 
-st.markdown('###### Number of common pathways with with CITRUS+: ')
+
+st.markdown('###### Common pathways between Cell Line Data & CITRUS+: ')
 st.write(set(hpv[hpv.pvalue<0.05].astype(str).Description).intersection(set(gg)))
 
 
