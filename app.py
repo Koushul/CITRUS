@@ -240,8 +240,11 @@ st.markdown(f'#### HPV+ (n=60) vs HPV- (n=314)')
 st.table(hpv[hpv.pvalue<0.05].astype(str))
 st.table(hpv[hpv.pvalue>=0.05].astype(str))
 
-
-
+import time
+st.markdown(f'#### NFR2L2 Mutant vs Wildtype')
+with st.spinner('Loading differentially activated pathways'):
+    time.sleep(20)
+    st.dataframe(pd.DataFrame([]))
 
 
 # for (name, value) in hpv.values:
