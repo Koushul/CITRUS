@@ -241,8 +241,8 @@ st.table(hpv[hpv.pvalue<0.05].astype(str))
 st.table(hpv[hpv.pvalue>=0.05].astype(str))
 
 import time
-st.markdown(f'#### NFR2L2 Mutant vs Wildtype')
-st.dataframe(pd.read_csv('./NFE2L2.csv'))
+st.markdown(f'#### NFR2L2 Mutants vs Wildtypes')
+st.table(pd.read_csv('./NFE2L2.csv'))
 
 
 # for (name, value) in hpv.values:
