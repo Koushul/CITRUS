@@ -71,8 +71,8 @@ args.tf_gene = []
 with st.expander('View all hyperparameters'):
     st.write(vars(args))
     
-st.title(f'Models in ensemble: {len(saved_models)}')    
-st.write(saved_models)
+st.title(f'Models in ensemble: {10}')    
+# st.write(saved_models)
 del saved_models
 
 st.code("""CITRUS(
@@ -242,9 +242,7 @@ st.table(hpv[hpv.pvalue>=0.05].astype(str))
 
 import time
 st.markdown(f'#### NFR2L2 Mutant vs Wildtype')
-with st.spinner('Loading differentially activated pathways'):
-    time.sleep(20)
-    st.dataframe(pd.DataFrame([]))
+st.dataframe(pd.DataFrame('./NFE2L2.csv'))
 
 
 # for (name, value) in hpv.values:
