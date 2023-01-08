@@ -251,5 +251,5 @@ import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
 pdf = pd.read_csv('pathway_heatmap.csv').set_index('Unnamed: 0')
 pdf.index.name = 'Pathways'
-sns.heatmap(pdf, cmap='viridis')
+sns.heatmap(pdf, cmap='viridis', xticklabels=True, yticklabels=True)
 st.write(fig)
