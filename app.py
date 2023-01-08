@@ -245,5 +245,7 @@ st.markdown(f'#### NFR2L2 Mutants vs Wildtypes')
 st.table(pd.read_csv('./NFE2L2.csv').astype(str))
 
 
-# for (name, value) in hpv.values:
-#     st.metric(name, value)
+fig, ax = plt.subplots()
+import seaborn as sns
+sns.heatmap(pd.read_csv('./pathway_heatmap.csv'))
+st.write(fig)

@@ -28,5 +28,5 @@ test_batch_size: 100
 test_inc_size: 256
 train_model: true
 weight_decay: 1.0e-05
-max_iter: 500
+max_iter: 100
 

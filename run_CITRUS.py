@@ -77,9 +77,9 @@ print(model)
 
 
 
-# np.random.shuffle(train_set['sga'])
-# np.random.shuffle(train_set['can'])
-# np.random.shuffle(train_set['gep'])
+np.random.shuffle(train_set['sga'])
+np.random.shuffle(train_set['can'])
+np.random.shuffle(train_set['gep'])
 
 
 print(f"Training on {device_name}...")
@@ -93,7 +93,9 @@ model.fit(
     test_inc_size=args.test_inc_size,
 )
 # model.save_model(os.path.join(args.output_dir, f'model_{args.run_count}_{args.tag}.pth'))
-model.save_model(os.path.join(args.output_dir, f'modelx.pth'))
+model.save_model(os.path.join(args.output_dir, f'random_model_3.pth'))
+
+exit()
     
 # evaluation
 print("Evaluating...")

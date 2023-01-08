@@ -146,7 +146,7 @@ class CITRUS(ModelBase):
 
         self.layer_dropout_2 = nn.Dropout(p=self.dropout_rate)
         
-        self.layer_dropout_3 = nn.Dropout(p=0.5)
+        self.layer_dropout_3 = nn.Dropout(p=0.1)
         
 
         self.layer_w_1 = nn.Linear(

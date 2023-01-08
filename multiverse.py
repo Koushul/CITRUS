@@ -30,7 +30,7 @@ warnings.filterwarnings("ignore")
 
 # ray.init()
 
-num_evaluations = 3
+num_evaluations = 2
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open('args.yaml', 'r') as f:
@@ -81,6 +81,8 @@ def fractured_universe(args, idd):
     )
 
     train_set, test_set = split_dataset(dataset, ratio=0.66)
+
+
 
     args.can_size = dataset["can"].max()  # cancer type dimension
     args.sga_size = dataset["sga"].max()  # SGA dimension
@@ -150,7 +152,7 @@ def fractured_universe(args, idd):
     model.cancers = o
     
     if model.pval_corr > 0.3:
-        model.save_model(os.path.join(args.output_dir, f'model_{model.uuid}.pth'))
+        model.save_model(os.path.join(args.output_dir, f'model_random_{model.uuid}.pth'))
     
     
     labels, preds, hid_tmr, emb_tmr, emb_sga, attn_wt, tmr = model.test(

@@ -89,21 +89,28 @@ class ModelBase(nn.Module):
         checkpoint = torch.load(path, map_location=torch.device('cpu'))
         self.load_state_dict(checkpoint['state_dict'])
                 
-        self.performance = checkpoint['performance']
-        self.pval_corr = checkpoint['pval_corr']
-        self.cancers = checkpoint['cancers']
+        # self.performance = checkpoint['performance']
+        # self.pval_corr = checkpoint['pval_corr']
+        # self.cancers = checkpoint['cancers']
 
     def save_model(self, path="data/trained_model.pth"):
         """Save learnable parameters of the trained model."""
 
         print("Saving model to " + path)
+        # torch.save(
+        #     {
+        #         'state_dict': self.state_dict(),
+        #         'performance': self.performance,
+        #         'pval_corr': self.pval_corr,
+        #         'cancers': self.cancers,
+        #         'idd': self.idd,
+        #         'iter_corr': self.iter_corr,
+        #         'uuid': self.uuid
+            # }, path)
+
         torch.save(
             {
                 'state_dict': self.state_dict(),
-                'performance': self.performance,
                 'pval_corr': self.pval_corr,
-                'cancers': self.cancers,
-                'idd': self.idd,
-                'iter_corr': self.iter_corr,
-                'uuid': self.uuid
             }, path)
+
