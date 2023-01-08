@@ -9,3 +9,4 @@ torch==1.11.0
 PyYAML
 tqdm==4.64.0
 plotly
+seaborn
