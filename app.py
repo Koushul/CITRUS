@@ -11,7 +11,7 @@ hallmark = pd.read_csv('hallmark.csv')
 st.set_page_config(
     page_title='CITRUS+',
     page_icon="🍋",
-    layout="wide",
+    # layout="wide",
     initial_sidebar_state="expanded",
     menu_items={}
 )
