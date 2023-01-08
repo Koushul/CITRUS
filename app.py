@@ -249,5 +249,7 @@ import matplotlib.pyplot as plt
 
 
 fig, ax = plt.subplots()
-sns.heatmap(pd.read_csv('pathway_heatmap.csv').set_index('Unnamed: 0'), cmap='viridis')
+pdf = pd.read_csv('pathway_heatmap.csv').set_index('Unnamed: 0')
+pdf.index.name = 'Pathways'
+sns.heatmap(pdf, cmap='viridis')
 st.write(fig)
