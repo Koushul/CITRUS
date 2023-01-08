@@ -240,12 +240,14 @@ st.markdown(f'#### HPV+ (n=60) vs HPV- (n=314)')
 st.table(hpv[hpv.pvalue<0.05].astype(str))
 st.table(hpv[hpv.pvalue>=0.05].astype(str))
 
-import time
 st.markdown(f'#### NFR2L2 Mutants vs Wildtypes')
 st.table(pd.read_csv('./NFE2L2.csv').astype(str))
 
 
-fig, ax = plt.subplots()
 import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+fig, ax = plt.subplots()
 sns.heatmap(pd.read_csv('./pathway_heatmap.csv'))
 st.write(fig)
