@@ -244,13 +244,4 @@ st.markdown(f'#### NFR2L2 Mutants vs Wildtypes')
 st.table(pd.read_csv('./NFE2L2.csv').astype(str))
 
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-
-fig, ax = plt.subplots()
-plt.figure(figsize=(10, 20))
-pdf = pd.read_csv('pathway_heatmap.csv').set_index('Unnamed: 0')
-pdf.index.name = 'Pathways'
-sns.heatmap(pdf, cmap='viridis', xticklabels=True, yticklabels=True)
-st.write(fig)
+st.image('heatmap.png')
