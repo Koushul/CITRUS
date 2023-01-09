@@ -4,18 +4,18 @@ import streamlit as st
 import plotly.express as px
 from scipy.stats import spearmanr
 from scipy.stats import kruskal
-from streamlit_image_comparison import image_comparison
+# from streamlit_image_comparison import image_comparison
 
 hallmark = pd.read_csv('hallmark.csv')
 
 
-# st.set_page_config(
-#     page_title='CITRUS+',
-#     page_icon="🍋",
-#     # layout="wide",
-#     initial_sidebar_state="expanded",
-#     menu_items={}
-# )
+st.set_page_config(
+    page_title='CITRUS+',
+    page_icon="🍋",
+    # layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={}
+)
 
 
 st.markdown('## 🍋 CITRUS+ ')
