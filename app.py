@@ -4,37 +4,22 @@ import streamlit as st
 import plotly.express as px
 from scipy.stats import spearmanr
 from scipy.stats import kruskal
+from streamlit_image_comparison import image_comparison
 
 hallmark = pd.read_csv('hallmark.csv')
 
 
-st.set_page_config(
-    page_title='CITRUS+',
-    page_icon="🍋",
-    # layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={}
-)
+# st.set_page_config(
+#     page_title='CITRUS+',
+#     page_icon="🍋",
+#     # layout="wide",
+#     initial_sidebar_state="expanded",
+#     menu_items={}
+# )
 
 
 st.markdown('## 🍋 CITRUS+ ')
 
-
-# from utils import Data, get_ppi_edge_list
-
-# data_csv = Data(
-#     fGEP_SGA = 'data/CITRUS_GEP_SGAseparated.csv',
-#     fgene_tf_SGA = 'data/CITRUS_gene_tf_SGAseparated.csv',
-#     fcancerType_SGA = 'data/CITRUS_canType_SGAseparated.csv',
-#     fSGA_SGA = 'data/CITRUS_SGA_SGAseparated.csv',
-# )
-
-# ppi = pd.DataFrame(get_ppi_edge_list(sparse=False)[:, :2], columns=['A', 'B'])
-# tf_ppi = ppi[ppi.A.isin(data_csv.tf) | ppi.B.isin(data_csv.tf)]
-
-# tfs = pd.DataFrame(data_csv.tf)
-# tfs.columns = ['tf']
-# tfs['interacts_with'] = tfs.tf.apply(lambda x: set(tf_ppi[(tf_ppi==x).any(axis=1)].values.reshape(-1)))
 
 import os
 import argparse
@@ -62,18 +47,22 @@ args = argparse.Namespace(**args_dict)
 args.tf_gene = np.load('tf_gene.npy')
 
 
-saved_models = [i.name for i in Path('./output').glob('*.pth')]
+# st.image('./CITRUS.png')
 
 
-
-st.image('./CITRUS.png')
+image_comparison(
+    img1='CITRUS.jpg',
+    img2='CITRUS.jpg',
+    width=800,
+    label1='',
+    label2=''
+)
 args.tf_gene = []
 with st.expander('View all hyperparameters'):
     st.write(vars(args))
     
 st.title(f'Models in ensemble: {10}')    
 # st.write(saved_models)
-del saved_models
 
 if st.button('Load Model'):
     st.code("""CITRUS(
