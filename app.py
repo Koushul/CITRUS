@@ -47,16 +47,16 @@ args = argparse.Namespace(**args_dict)
 args.tf_gene = np.load('tf_gene.npy')
 
 
-# st.image('./CITRUS.png')
+st.image('./CITRUS.png')
 
 
-image_comparison(
-    img1='CITRUS.jpg',
-    img2='CITRUS.jpg',
-    width=900,
-    label1='',
-    label2=''
-)
+# image_comparison(
+#     img1='CITRUS.jpg',
+#     img2='CITRUS.jpg',
+#     width=800,
+#     label1='',
+#     label2=''
+# )
 args.tf_gene = []
 with st.expander('View all hyperparameters'):
     st.write(vars(args))
