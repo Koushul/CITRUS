@@ -68,7 +68,7 @@ elif page == 'Pathways':
     st.image('./CITRUS.png')
 
 
-    with st.expander('Show PyTorch implementation'):
+    with st.expander('Show PyTorch model implementation'):
         st.code("""
         def forward(self, sga_index, can_index):                    
             # cancer type embedding
@@ -126,9 +126,14 @@ elif page == 'Pathways':
         - High sparsity of connections between Pathway and TF layer
         - Interpretation of trained models
         """
-
-
     )
+
+    with st.expander('Show DropConnect implementation'):
+        st.code("""
+mask = torch.from_numpy(self.mask).float().to(device)
+self.pathways.weight.data = self.pathways.weight.data * mask.T
+self.pathways.weight.register_hook(lambda grad: grad.mul_(mask.T))
+        """)
 
 
 if page == 'Training':
