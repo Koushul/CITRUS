@@ -1,4 +1,3 @@
-streamlit-image-comparison
 networkx==2.6.3
 numpy==1.21.6
 pandas==1.1.5
@@ -11,3 +10,4 @@ PyYAML
 tqdm==4.64.0
 plotly
 seaborn
+dash_bio
