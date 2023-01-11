@@ -16,7 +16,9 @@ st.set_page_config(
     menu_items={}
 )
 
-
+cancers = ['LUAD', 'UCEC', 'LIHC', 'KIRC', 'PRAD', 'COAD', 'THCA', 'BRCA',
+    'KIRP', 'BLCA', 'LUSC', 'STAD', 'HNSC', 'CESC', 'GBM', 'ESCA',
+    'PCPG']
 
 import os
 import argparse
@@ -50,23 +52,29 @@ import datetime
 
 with st.sidebar:
     page = st.radio('CITRUS+', 
-        ['Intro', 'Pathways', 'Training', 'Performance', 'PCA Analysis', 'Mutant vs Wildtype', 'PIK3CA Analysis', 'HPV+/HPV- Analysis', 'NFE2L2 Analysis', '']
+        ['Intro', 'Pathways', 'Training', 'Performance', 'PCA Analysis', 'NFE2L2 Analysis', 'Clustermaps', 'Mutant vs Wildtype', 'PIK3CA Analysis', 'HPV+/HPV- Analysis']
     
     )
 
-st.sidebar.markdown('---')
+# st.sidebar.markdown('---')
 
 
-with st.sidebar:
-    pagex = st.radio('Website Design Tutorial', 
-        ['Background', 'Streamlit', 'Getting Started', 'Components Hub']
+# with st.sidebar:
+#     pagex = st.radio('Website Design Tutorial', 
+#         ['Background', 'Streamlit', 'Getting Started', 'Components Hub']
     
-    )
+    # )
 if page == '' and pagex == 'Components Hub':
     st.image('streamlit.png')
 
+
+if page == 'Clustermaps':
+    c_choice = st.selectbox('Cancer Type', cancers)
+    st.image(f'clustermap_{c_choice}.png')
+
+    
+
 if page == '' and pagex == 'Background':
-    page = ''
     st.markdown(f'## Basic Websapp Architecture')
     st.image('https://cdn-clekk.nitrocdn.com/tkvYXMZryjYrSVhxKeFTeXElceKUYHeV/assets/images/optimized/rev-b24cd49/wp-content/uploads/2021/04/What_Is_Web_Application_Architecture_.png')
 
@@ -206,12 +214,12 @@ with col3:
                 
 
 
-if page != '':
-    st.markdown(f'## Research Progress: 🍋 CITRUS+ ')
-    st.caption(str(datetime.datetime.now()))
+# if page != '':
+#     st.markdown(f'## Research Progress: 🍋 CITRUS+ ')
+#     st.caption(str(datetime.datetime.now()))
 
 
-st.markdown('#### '+ page)
+# st.markdown('#### '+ page)
 if page == 'Intro':
     st.write('This work builds on top of our previous paper (CITRUS)')
     st.image('paper.png')
@@ -493,9 +501,7 @@ if page == 'NFE2L2 Analysis':
     with taba:
 
         import dash_bio
-        cancers = ['LUAD', 'UCEC', 'LIHC', 'KIRC', 'PRAD', 'COAD', 'THCA', 'BRCA',
-            'KIRP', 'BLCA', 'LUSC', 'STAD', 'HNSC', 'CESC', 'GBM', 'ESCA',
-            'PCPG']
+
 
         v = pd.read_csv(f'NFE2L2_BRCA.csv')
         c_choice = st.selectbox('Cancer Type', cancers)
