@@ -46,14 +46,170 @@ args.tf_gene = np.load('tf_gene.npy')
 
 import datetime
 
-st.markdown(f'## Research Progress: 🍋 CITRUS+ ')
-st.caption(str(datetime.datetime.now()))
+
 
 with st.sidebar:
-    page = st.radio('Page', 
-        ['Intro', 'Pathways', 'Training', 'Performance', 'PCA Analysis', 'Mutant vs Wildtype', 'PIK3CA Analysis', 'HPV+/HPV- Analysis', 'NFE2L2 Analysis']
+    page = st.radio('CITRUS+', 
+        ['Intro', 'Pathways', 'Training', 'Performance', 'PCA Analysis', 'Mutant vs Wildtype', 'PIK3CA Analysis', 'HPV+/HPV- Analysis', 'NFE2L2 Analysis', '']
     
     )
+
+st.sidebar.markdown('---')
+
+
+with st.sidebar:
+    pagex = st.radio('Website Design Tutorial', 
+        ['Background', 'Streamlit', 'Getting Started', 'Components Hub']
+    
+    )
+if page == '' and pagex == 'Components Hub':
+    st.image('streamlit.png')
+
+if page == '' and pagex == 'Background':
+    page = ''
+    st.markdown(f'## Basic Websapp Architecture')
+    st.image('https://cdn-clekk.nitrocdn.com/tkvYXMZryjYrSVhxKeFTeXElceKUYHeV/assets/images/optimized/rev-b24cd49/wp-content/uploads/2021/04/What_Is_Web_Application_Architecture_.png')
+
+elif page == '' and pagex == 'Streamlit':
+    st.image(
+        'https://streamlit.io/images/brand/streamlit-logo-primary-colormark-darktext.svg'
+    )
+    st.write("""
+    TL;DR: Streamlit is an open-source app framework for Machine Learning and Data Science teams. You can create beautiful data apps in hours. Streamlit was released in October 2019 and was recently acquired by Snowflake. There's huge excitement about it in the Data Science community. It's not just for Data Science, though. With its component extensibility architecture, you can build and integrate most kinds of web frontends into Streamlit apps. 
+    """)
+
+    with st.expander('Streamlit Overview'):
+        st.image('https://images.ctfassets.net/23aumh6u8s0i/4OFELFCCOA9kCtea8831Yq/c56ae175ea16cdd08880eebfa8b2c2e7/10_structure-hero-app.png')
+
+
+if page == '' and pagex == 'Getting Started':
+    st.title(pagex)
+    st.write('Official Docs: https://docs.streamlit.io/library/get-started')
+
+    st.code('pip install streamlit')
+
+    st.markdown('---')
+    st.code('import streamlit as st')
+
+    st.markdown('#### Displaying Text')
+
+    st.code("""
+st.markdown('Streamlit is **_really_ cool**.')
+st.markdown(”This text is :red[colored red], and this is **:blue[colored]** and bold.”)
+st.markdown(":green[$\sqrt{x^2+y^2}=1$] is a Pythagorean identity. :pencil:")
+
+st.latex(r'''
+        a + ar + a r^2 + a r^3 + \cdots + a r^{n-1} =
+        \sum_{k=0}^{n-1} ar^k =
+        a \left(\frac{1-r^{n}}{1-r}\right)''')
+    """)
+
+    if st.button('Run Code'):
+        st.markdown('Streamlit is **_really_ cool**.')
+        st.markdown("This text is :red[colored red], and this is **:blue[colored]** and bold.")
+        st.markdown(":green[$\sqrt{x^2+y^2}=1$] is a Pythagorean identity. :pencil:")
+
+        st.latex(r'''
+        a + ar + a r^2 + a r^3 + \cdots + a r^{n-1} =
+        \sum_{k=0}^{n-1} ar^k =
+        a \left(\frac{1-r^{n}}{1-r}\right)
+        ''')
+
+
+    st.code("""
+import pandas as pd
+import numpy as np
+
+df = pd.DataFrame(
+   np.random.randn(10, 5),
+   columns=('col %d' % i for i in range(5)))
+
+st.table(df)
+    """)
+
+    if st.button('Run Code', key='df'):
+        import pandas as pd
+        import numpy as np
+
+        df = pd.DataFrame(np.random.randn(10, 5), columns=('col %d' % i for i in range(5)))
+
+        st.table(df)
+
+
+    st.code("""
+    
+tab1, tab2 = st.tabs(["Streamlit theme (default)", "Plotly native theme"])
+
+with tab1:
+    st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+    
+with tab2:
+    st.plotly_chart(fig, theme=None, use_container_width=True)
+    """)
+
+    if st.button('Show Plotly Example'):
+        import plotly.express as px
+         
+        with st.spinner('Generating figure'):
+            df = px.data.gapminder()
+
+            fig = px.scatter(
+                df.query("year==2007"),
+                x="gdpPercap",
+                y="lifeExp",
+                size="pop",
+                color="continent",
+                hover_name="country",
+                log_x=True,
+                size_max=60,
+            )
+
+            tab1, tab2 = st.tabs(["Streamlit theme (default)", "Plotly native theme"])
+            with tab1:
+                st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+
+            with tab2:
+                st.plotly_chart(fig, theme=None, use_container_width=True)
+
+
+    st.code("""
+    
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.header("A cat")
+    st.image("https://static.streamlit.io/examples/cat.jpg")
+
+with col2:
+    st.header("A dog")
+    st.image("https://static.streamlit.io/examples/dog.jpg")
+
+with col3:
+    st.header("An owl")
+    st.image("https://static.streamlit.io/examples/owl.jpg")
+    """)
+
+    if st.button('Show me the animal pictures!'):
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.header("A cat")
+            st.image("https://static.streamlit.io/examples/cat.jpg")
+
+        with col2:
+            st.header("A dog")
+            st.image("https://static.streamlit.io/examples/dog.jpg")
+
+        with col3:
+            st.header("An owl")
+            st.image("https://static.streamlit.io/examples/owl.jpg")
+                
+
+
+if page != '':
+    st.markdown(f'## Research Progress: 🍋 CITRUS+ ')
+    st.caption(str(datetime.datetime.now()))
+
 
 st.markdown('#### '+ page)
 if page == 'Intro':
@@ -225,6 +381,10 @@ if page == 'PCA Analysis':
     st.markdown('### PCA - Pathways')
     st.image('./pathway.JPG')
 
+    st.markdown('### PCA - Tumor Embedding')
+    st.image('./tumor_embedding.png')
+    
+
 
 if page == 'PIK3CA Analysis':
     p_predicted = np.load('p_predicted.npy')
@@ -364,5 +524,8 @@ if page == 'NFE2L2 Analysis':
     with tabc: 
         st.markdown(f'#### NFR2L2 Mutants vs Wildtypes')
         st.table(pd.read_csv('./NFE2L2.csv').astype(str))
+
+
+
 
 
