@@ -65,8 +65,19 @@ with st.sidebar:
     
     # )
 
-if page == '' and pagex == 'Weights Analysis':
+if page == 'Weights Analysis':
+    st.title('Correlation between model pathway weights in the ensemble')
     st.image('models_models.png')
+
+    st.title('Correlation between model transcription factor weights in the ensemble')
+    st.image('models_models_tf.png')
+
+    st.title('Pathway Weights Comparison')
+    st.image('PathwaysWeightDistribution.png')
+
+
+    st.title('Pathway Weights Comparison')
+    st.image('SumWeightDistribution.png')
 
 if page == '' and pagex == 'Components Hub':
     st.image('streamlit.png')
