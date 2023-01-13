@@ -76,7 +76,7 @@ if page == 'Weights Analysis':
     st.image('PathwaysWeightDistribution.png')
 
 
-    st.title('Pathway Weights Comparison')
+    st.title('Ensemble Weight')
     st.image('SumWeightDistribution.png')
 
 if page == '' and pagex == 'Components Hub':
