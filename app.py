@@ -77,7 +77,7 @@ if page == 'Weights Analysis':
 
 
     st.title('Ensemble Weight')
-    st.image('SumWeightDistribution.png')
+    st.image('SumDistribution.png')
 
 if page == '' and pagex == 'Components Hub':
     st.image('streamlit.png')
