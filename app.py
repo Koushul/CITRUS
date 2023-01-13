@@ -93,6 +93,10 @@ if page == 'Clustermaps':
     c_choice = st.selectbox('Cancer Type', cancers)
     st.image(f'clustermap_{c_choice}.png')
 
+    st.markdown('---')
+
+    st.image(f'clustermap_{c_choice}_pathways.png')
+
     
 
 if page == '' and pagex == 'Background':
