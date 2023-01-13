@@ -52,7 +52,7 @@ import datetime
 
 with st.sidebar:
     page = st.radio('CITRUS+', 
-        ['Intro', 'Pathways', 'Training', 'Performance', 'PCA Analysis', 'NFE2L2 Analysis', 'Clustermaps', 'Mutant vs Wildtype', 'PIK3CA Analysis', 'HPV+/HPV- Analysis']
+        ['Intro', 'Pathways', 'Training', 'Performance', 'PCA Analysis', 'NFE2L2 Analysis', 'Clustermaps', 'Mutant vs Wildtype', 'PIK3CA Analysis', 'HPV+/HPV- Analysis', 'Weights Analysis']
     
     )
 
@@ -64,6 +64,10 @@ with st.sidebar:
 #         ['Background', 'Streamlit', 'Getting Started', 'Components Hub']
     
     # )
+
+if page == '' and pagex == 'Weights Analysis':
+    st.image('models_models.png')
+
 if page == '' and pagex == 'Components Hub':
     st.image('streamlit.png')
 
