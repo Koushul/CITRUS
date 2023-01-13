@@ -79,6 +79,12 @@ if page == 'Weights Analysis':
     st.title('Ensemble Weight')
     st.image('SumDistribution.png')
 
+
+    st.title('Pathway Size vs TF Connections')
+    st.image('Pathway_vs_connections.png')
+
+    
+
 if page == '' and pagex == 'Components Hub':
     st.image('streamlit.png')
 
